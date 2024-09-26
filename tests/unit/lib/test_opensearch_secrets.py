@@ -137,10 +137,10 @@ class TestOpenSearchSecrets(TestOpenSearchInternalData):
     def test_label_app(self):
         scope = Scope.APP
         label = self.store.label(scope, "key1")
-        self.assertEqual(label, f"opensearch:{scope}:key1")
+        self.assertEqual(label, f"wazuh-indexer:{scope}:key1")
         self.assertEqual(
             self.store.breakdown_label(label),
-            {"application_name": "opensearch", "scope": scope, "unit_id": None, "key": "key1"},
+            {"application_name": "wazuh-indexer", "scope": scope, "unit_id": None, "key": "key1"},
         )
 
     def test_label_unit(self):
@@ -149,7 +149,7 @@ class TestOpenSearchSecrets(TestOpenSearchInternalData):
         self.assertEqual(self.store.label(scope, "key1"), f"opensearch:{scope}:0:key1")
         self.assertEqual(
             self.store.breakdown_label(label),
-            {"application_name": "opensearch", "scope": scope, "unit_id": 0, "key": "key1"},
+            {"application_name": "wazuh-indexer", "scope": scope, "unit_id": 0, "key": "key1"},
         )
 
     @parameterized.expand([Scope.APP, Scope.UNIT])

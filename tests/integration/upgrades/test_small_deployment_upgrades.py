@@ -24,8 +24,8 @@ from .helpers import assert_upgrade_to_local, refresh
 logger = logging.getLogger(__name__)
 
 
-OPENSEARCH_ORIGINAL_CHARM_NAME = "opensearch"
-OPENSEARCH_CHANNEL = "2/edge"
+OPENSEARCH_ORIGINAL_CHARM_NAME = "wazuh-indexer"
+OPENSEARCH_CHANNEL = "4/edge"
 
 
 STARTING_VERSION = "2.15.0"

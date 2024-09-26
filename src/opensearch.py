@@ -41,10 +41,10 @@ logger = logging.getLogger(__name__)
 class OpenSearchSnap(OpenSearchDistribution):
     """Snap distribution of opensearch, only overrides properties and logic proper to the snap."""
 
-    _BASE_SNAP_DIR = "/var/snap/opensearch"
+    _BASE_SNAP_DIR = "/var/snap/wazuh-indexer"
     _SNAP_DATA = f"{_BASE_SNAP_DIR}/current"
     _SNAP_COMMON = f"{_BASE_SNAP_DIR}/common"
-    _SNAP = "/snap/opensearch/current"
+    _SNAP = "/snap/wazuh-indexer/current"
 
     def __init__(self, charm, peer_relation: str):
         super().__init__(charm, peer_relation)
@@ -52,7 +52,7 @@ class OpenSearchSnap(OpenSearchDistribution):
         for attempt in Retrying(stop=stop_after_attempt(5), wait=wait_fixed(wait=5)):
             with attempt:
                 cache = snap.SnapCache()
-                self._opensearch = cache["opensearch"]
+                self._opensearch = cache["wazuh-indexer"]
 
     @retry(
         stop=stop_after_attempt(3),
