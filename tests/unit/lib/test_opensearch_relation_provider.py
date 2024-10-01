@@ -357,7 +357,7 @@ class TestOpenSearchProvider(unittest.TestCase):
         )
 
         # Check the relations have the correct Kibanaserver password
-        peer_secret_label = "opensearch:app:kibanaserver-password"
+        peer_secret_label = "wazuh-indexer:app:kibanaserver-password"
         rel1_secret_label = f"opensearch-client.{opensearch_relation1}.user.secret"
         rel2_secret_label = f"opensearch-client.{opensearch_relation2}.user.secret"
 
