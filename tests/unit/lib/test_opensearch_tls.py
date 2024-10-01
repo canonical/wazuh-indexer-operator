@@ -1022,7 +1022,8 @@ class TestOpenSearchTLS(unittest.TestCase):
 
         # 'tls_ca_renewed' flag is set, new unit certificates were requested
         assert (
-            self.harness.get_relation_data(self.rel_id, "wazuh-indexer/0")["tls_ca_renewed"] == "True"
+            self.harness.get_relation_data(self.rel_id, "wazuh-indexer/0")["tls_ca_renewed"]
+            == "True"
         )
 
         new_app_admin_secret = self.secret_store.get_object(Scope.APP, CertType.APP_ADMIN.val)
@@ -1170,7 +1171,8 @@ class TestOpenSearchTLS(unittest.TestCase):
 
         # 'tls_ca_renewed' flag is set, new unit certificates were requested
         assert (
-            self.harness.get_relation_data(self.rel_id, "wazuh-indexer/0")["tls_ca_renewed"] == "True"
+            self.harness.get_relation_data(self.rel_id, "wazuh-indexer/0")["tls_ca_renewed"]
+            == "True"
         )
         # Note that the old flag is left intact
         assert (
@@ -1281,7 +1283,9 @@ class TestOpenSearchTLS(unittest.TestCase):
 
             # We passed the 1st stage of the certificate renewalV
             self.harness.update_relation_data(
-                self.rel_id, "wazuh-indexer/0", {"tls_ca_renewing": "True", "tls_ca_renewed": "True"}
+                self.rel_id,
+                "wazuh-indexer/0",
+                {"tls_ca_renewing": "True", "tls_ca_renewed": "True"},
             )
 
         self.charm.tls._on_certificate_available(event_mock)
@@ -1300,7 +1304,8 @@ class TestOpenSearchTLS(unittest.TestCase):
             in run_cmd.call_args_list[1].args[0]
         )
         assert (
-            self.harness.get_relation_data(self.rel_id, "wazuh-indexer/0")["tls_ca_renewed"] == "True"
+            self.harness.get_relation_data(self.rel_id, "wazuh-indexer/0")["tls_ca_renewed"]
+            == "True"
         )
         # Note that the old flag is left intact
         assert (
@@ -1456,7 +1461,9 @@ class TestOpenSearchTLS(unittest.TestCase):
 
             # We passed the 1st stage of the certificate renewalV
             self.harness.update_relation_data(
-                self.rel_id, "wazuh-indexer/0", {"tls_ca_renewing": "True", "tls_ca_renewed": "True"}
+                self.rel_id,
+                "wazuh-indexer/0",
+                {"tls_ca_renewing": "True", "tls_ca_renewed": "True"},
             )
 
         reload_tls_certificates.side_effect = None
@@ -1485,8 +1492,12 @@ class TestOpenSearchTLS(unittest.TestCase):
         )
         assert re.search("keytool .*-delete .*-alias old-ca", run_cmd.call_args_list[-1].args[0])
 
-        assert "tls_ca_renewing" not in self.harness.get_relation_data(self.rel_id, "wazuh-indexer/0")
-        assert "tls_ca_renewed" not in self.harness.get_relation_data(self.rel_id, "wazuh-indexer/0")
+        assert "tls_ca_renewing" not in self.harness.get_relation_data(
+            self.rel_id, "wazuh-indexer/0"
+        )
+        assert "tls_ca_renewed" not in self.harness.get_relation_data(
+            self.rel_id, "wazuh-indexer/0"
+        )
 
         assert self.harness.model.unit.status.message == ""
         assert self.harness.model.unit.status, MaintenanceStatus != original_status

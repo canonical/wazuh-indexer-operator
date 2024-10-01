@@ -313,7 +313,9 @@ async def test_all_units_have_all_local_users(ops_test: OpsTest) -> None:
     # Get the leader's version of internal_users.yml
     leader_id = await get_leader_unit_id(ops_test)
     leader_name = f"{APP_NAME}/{leader_id}"
-    filename = "/var/snap/wazuh-indexer/current/etc/opensearch/opensearch-security/internal_users.yml"
+    filename = (
+        "/var/snap/wazuh-indexer/current/etc/opensearch/opensearch-security/internal_users.yml"
+    )
     leader_conf = get_conf_as_dict(ops_test, leader_name, filename)
 
     # Check on all units if they have the same
@@ -331,7 +333,9 @@ async def test_all_units_have_internal_users_synced(ops_test: OpsTest) -> None:
     # Get the leader's version of internal_users.yml
     leader_id = await get_leader_unit_id(ops_test)
     leader_name = f"{APP_NAME}/{leader_id}"
-    filename = "/var/snap/wazuh-indexer/current/etc/opensearch/opensearch-security/internal_users.yml"
+    filename = (
+        "/var/snap/wazuh-indexer/current/etc/opensearch/opensearch-security/internal_users.yml"
+    )
     leader_conf = get_conf_as_dict(ops_test, leader_name, filename)
 
     # Check on all units if they have the same
