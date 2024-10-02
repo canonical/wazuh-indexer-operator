@@ -533,11 +533,11 @@ class TestOpenSearchTLS(unittest.TestCase):
 
         assert re.search(
             "openssl pkcs12 -export .*-out "
-            "/var/snap/wazuh-indexer/current/etc/opensearch/certificates/app-admin.p12 .*-name app-admin",
+            "/var/snap/wazuh-indexer/current/etc/wazuh-indexer/certificates/app-admin.p12 .*-name app-admin",
             run_cmd.call_args_list[0].args[0],
         )
         assert (
-            "sudo chmod +r /var/snap/wazuh-indexer/current/etc/opensearch/certificates/app-admin.p12"
+            "sudo chmod +r /var/snap/wazuh-indexer/current/etc/wazuh-indexer/certificates/app-admin.p12"
             in run_cmd.call_args_list[1].args[0]
         )
 
@@ -673,11 +673,11 @@ class TestOpenSearchTLS(unittest.TestCase):
 
         assert re.search(
             "openssl pkcs12 -export .*-out "
-            f"/var/snap/wazuh-indexer/current/etc/opensearch/certificates/{cert_type}.p12 .*-name {cert_type}",
+            f"/var/snap/wazuh-indexer/current/etc/wazuh-indexer/certificates/{cert_type}.p12 .*-name {cert_type}",
             run_cmd.call_args_list[0].args[0],
         )
         assert (
-            f"sudo chmod +r /var/snap/wazuh-indexer/current/etc/opensearch/certificates/{cert_type}.p12"
+            f"sudo chmod +r /var/snap/wazuh-indexer/current/etc/wazuh-indexer/certificates/{cert_type}.p12"
             in run_cmd.call_args_list[1].args[0]
         )
 
@@ -797,7 +797,7 @@ class TestOpenSearchTLS(unittest.TestCase):
         )
         assert re.search("keytool *-importcert.* *-alias ca", run_cmd.call_args_list[1].args[0])
         assert (
-            "chmod +r /var/snap/wazuh-indexer/current/etc/opensearch/certificates/ca.p12"
+            "chmod +r /var/snap/wazuh-indexer/current/etc/wazuh-indexer/certificates/ca.p12"
             in run_cmd.call_args_list[2].args[0]
         )
         # NOTE: The new cert and chain are NOT saved into the keystore (disk)
@@ -1296,11 +1296,11 @@ class TestOpenSearchTLS(unittest.TestCase):
         # Exporting new certs
         assert re.search(
             "openssl pkcs12 -export .* -out "
-            "/var/snap/wazuh-indexer/current/etc/opensearch/certificates/app-admin.p12 .* -name app-admin",
+            "/var/snap/wazuh-indexer/current/etc/wazuh-indexer/certificates/app-admin.p12 .* -name app-admin",
             run_cmd.call_args_list[0].args[0],
         )
         assert (
-            "chmod +r /var/snap/wazuh-indexer/current/etc/opensearch/certificates/app-admin.p12"
+            "chmod +r /var/snap/wazuh-indexer/current/etc/wazuh-indexer/certificates/app-admin.p12"
             in run_cmd.call_args_list[1].args[0]
         )
         assert (
@@ -1483,11 +1483,11 @@ class TestOpenSearchTLS(unittest.TestCase):
 
         assert re.search(
             "openssl pkcs12 -export .* -out "
-            f"/var/snap/wazuh-indexer/current/etc/opensearch/certificates/{cert_type}.p12 .* -name {cert_type}",
+            f"/var/snap/wazuh-indexer/current/etc/wazuh-indexer/certificates/{cert_type}.p12 .* -name {cert_type}",
             run_cmd.call_args_list[0].args[0],
         )
         assert (
-            f"chmod +r /var/snap/wazuh-indexer/current/etc/opensearch/certificates/{cert_type}.p12"
+            f"chmod +r /var/snap/wazuh-indexer/current/etc/wazuh-indexer/certificates/{cert_type}.p12"
             in run_cmd.call_args_list[1].args[0]
         )
         assert re.search("keytool .*-delete .*-alias old-ca", run_cmd.call_args_list[-1].args[0])

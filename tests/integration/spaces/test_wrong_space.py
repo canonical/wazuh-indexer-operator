@@ -93,7 +93,7 @@ async def test_check_opensearch_transport(ops_test: OpsTest) -> None:
     for id in ids_to_addr.keys():
         hosts = (
             subprocess.check_output(
-                f"juju ssh wazuh-indexer/{id} -- sudo cat /var/snap/wazuh-indexer/current/etc/opensearch/unicast_hosts.txt".split()
+                f"juju ssh wazuh-indexer/{id} -- sudo cat /var/snap/wazuh-indexer/current/etc/wazuh-indexer/unicast_hosts.txt".split()
             )
             .decode()
             .rsplit()
