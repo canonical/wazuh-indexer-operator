@@ -195,3 +195,11 @@ class Upgrade(upgrade.Upgrade):
         logger.debug(
             f'Saved {SNAP_REVISION=} and {self._current_versions["workload"]=} in unit databag after upgrade'
         )
+
+    def save_snap_revision_after_first_install(self):
+        """Set snap revision on first install"""
+        self._unit_workload_container_version = SNAP_REVISION
+        self._unit_workload_version = self._current_versions["workload"]
+        logger.debug(
+            f'Saved {SNAP_REVISION=} and {self._current_versions["workload"]=} in unit databag after first install'
+        )
