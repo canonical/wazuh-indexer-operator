@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import Optional
 
 import requests
-from charms.opensearch.v0.constants_charm import OPENSEARCH_SNAP_REVISION
 from charms.opensearch.v0.helper_charm import run_cmd
 from charms.opensearch.v0.opensearch_distro import OpenSearchDistribution, Paths
 from charms.opensearch.v0.opensearch_exceptions import (
@@ -36,6 +35,8 @@ from tenacity import Retrying, retry, stop_after_attempt, wait_exponential, wait
 from utils import extract_tarball
 
 logger = logging.getLogger(__name__)
+
+SNAP_REVISION = "3"
 
 
 class OpenSearchSnap(OpenSearchDistribution):
@@ -63,7 +64,7 @@ class OpenSearchSnap(OpenSearchDistribution):
     def install(self):
         """Install/upgrade opensearch from the snapcraft store."""
         try:
-            self._opensearch.ensure(snap.SnapState.Latest, revision=OPENSEARCH_SNAP_REVISION)
+            self._opensearch.ensure(snap.SnapState.Latest, revision=SNAP_REVISION)
             self._opensearch.connect("process-control")
             if not self._opensearch.held:
                 # hold the snap in charm determined revision
