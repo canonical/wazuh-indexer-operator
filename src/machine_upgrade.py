@@ -14,7 +14,7 @@ import typing
 import ops
 
 import upgrade
-from opensearch import OpenSearchSnap, SNAP_REVISION
+from opensearch import SNAP_REVISION, OpenSearchSnap
 
 logger = logging.getLogger(__name__)
 
@@ -194,12 +194,4 @@ class Upgrade(upgrade.Upgrade):
         self._unit_workload_version = self._current_versions["workload"]
         logger.debug(
             f'Saved {SNAP_REVISION=} and {self._current_versions["workload"]=} in unit databag after upgrade'
-        )
-
-    def saveSNAP_REVISION_after_first_install(self):
-        """Set snap revision on first install"""
-        self._unit_workload_container_version = SNAP_REVISION
-        self._unit_workload_version = self._current_versions["workload"]
-        logger.debug(
-            f'Saved {SNAP_REVISION=} and {self._current_versions["workload"]=} in unit databag after first install'
         )

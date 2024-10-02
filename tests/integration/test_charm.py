@@ -9,12 +9,13 @@ import subprocess
 
 import pytest
 import yaml
-from opensearch import SNAP_REVISION
 from charms.opensearch.v0.constants_charm import (
     OpenSearchSystemUsers,
     TLSRelationMissing,
 )
 from pytest_operator.plugin import OpsTest
+
+from opensearch import SNAP_REVISION
 
 from .ha.continuous_writes import ContinuousWrites
 from .ha.helpers import (
