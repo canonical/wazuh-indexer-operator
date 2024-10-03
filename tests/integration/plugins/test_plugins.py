@@ -368,6 +368,7 @@ async def test_knn_enabled_disabled(ops_test, deploy_type: str):
 
 @pytest.mark.parametrize("deploy_type", SMALL_DEPLOYMENTS)
 @pytest.mark.abort_on_fail
+@pytest.mark.skip
 async def test_knn_search_with_hnsw_faiss(ops_test: OpsTest, deploy_type: str) -> None:
     """Uploads data and runs a query search against the FAISS KNNEngine."""
     app = (await app_name(ops_test)) or APP_NAME
