@@ -83,7 +83,7 @@ async def test_check_opensearch_transport(ops_test: OpsTest) -> None:
     for id in ids:
         ids_to_addr[id] = yaml.safe_load(
             subprocess.check_output(
-                f"juju exec --unit opensearch/{id} -- network-get opensearch-peers".split()
+                f"juju exec --unit wazuh-indexer/{id} -- network-get opensearch-peers".split()
             ).decode()
         )["bind-addresses"][0]["addresses"][0]["address"]
 
