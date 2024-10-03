@@ -34,7 +34,7 @@ from ..helpers import (
 from .continuous_writes import ContinuousWrites
 from .helpers_data import index_docs_count
 
-OPENSEARCH_SERVICE_PATH = "/etc/systemd/system/snap.opensearch.daemon.service"
+OPENSEARCH_SERVICE_PATH = "/etc/systemd/system/snap.wazuh-indexer.daemon.service"
 ORIGINAL_RESTART_DELAY = 20
 SECOND_APP_NAME = "second-opensearch"
 RESTART_DELAY = 360

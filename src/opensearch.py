@@ -83,7 +83,7 @@ class OpenSearchSnap(OpenSearchDistribution):
         if not self._opensearch.present:
             return False
 
-        if not service_running("snap.opensearch.daemon.service"):
+        if not service_running("snap.wazuh-indexer.daemon.service"):
             return False
 
         # Now, we must dig deeper into the actual status of systemd and the JVM process.
@@ -162,7 +162,7 @@ class OpenSearchSnap(OpenSearchDistribution):
         if not self._opensearch.present:
             raise OpenSearchMissingError()
 
-        return service_failed("snap.opensearch.daemon.service")
+        return service_failed("snap.wazuh-indexer.daemon.service")
 
     @override
     def _set_env_variables(self):
