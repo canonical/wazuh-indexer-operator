@@ -66,6 +66,11 @@ class OpenSearchSnap(OpenSearchDistribution):
         try:
             self._opensearch.ensure(snap.SnapState.Latest, revision=SNAP_REVISION)
             self._opensearch.connect("process-control")
+            self._opensearch.connect("log-observe")
+            self._opensearch.connect("mount-observe")
+            self._opensearch.connect("system-observe")
+            self._opensearch.connect("sys-fs-cgroup-service")
+            self._opensearch.connect("shmem-perf-analyzer")
             if not self._opensearch.held:
                 # hold the snap in charm determined revision
                 self._opensearch.hold()
