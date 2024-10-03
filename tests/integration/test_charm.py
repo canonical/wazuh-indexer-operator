@@ -15,8 +15,6 @@ from charms.opensearch.v0.constants_charm import (
 )
 from pytest_operator.plugin import OpsTest
 
-from opensearch import SNAP_REVISION
-
 from .ha.continuous_writes import ContinuousWrites
 from .ha.helpers import (
     assert_continuous_writes_consistency,
@@ -270,7 +268,7 @@ async def test_check_pinned_revision(ops_test: OpsTest) -> None:
         ).replace("\r\n", "\n")
     )["installed"].split()
     logger.info(f"Installed snap: {installed_info}")
-    assert installed_info[1] == f"({SNAP_REVISION})"
+    assert installed_info[1] == "(3)"
     assert installed_info[3] == "held"
 
 
