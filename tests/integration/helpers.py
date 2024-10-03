@@ -63,7 +63,7 @@ async def execute_update_status_manually(ops_test: OpsTest, app: str):
     leader_id = await get_leader_unit_id(ops_test, app)
 
     cmd = '"export JUJU_DISPATCH_PATH=hooks/update-status; ./dispatch"'
-    exec_cmd = f"juju exec -u opensearch/{leader_id} -m {ops_test.model.name} -- {cmd}"
+    exec_cmd = f"juju exec -u wazuh-indexer/{leader_id} -m {ops_test.model.name} -- {cmd}"
     try:
         # The "normal" subprocess.run with "export ...; ..." cmd was failing
         # Noticed that, for this case, canonical/jhack uses shlex instead to split.

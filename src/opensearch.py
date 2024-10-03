@@ -309,7 +309,7 @@ class OpenSearchTarball(OpenSearchDistribution):
         """
 
         self.write_file(
-            "/etc/systemd/system/opensearch.service",
+            "/etc/systemd/system/wazuh-indexer.service",
             "\n".join([line.strip() for line in unit_content.split("\n")]),
         )
 

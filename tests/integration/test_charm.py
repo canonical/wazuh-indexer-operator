@@ -361,7 +361,7 @@ async def test_add_users_and_calling_update_status(ops_test: OpsTest) -> None:
     assert http_resp_code >= 200 and http_resp_code < 300
 
     cmd = '"export JUJU_DISPATCH_PATH=hooks/update-status; ./dispatch"'
-    exec_cmd = f"juju exec -u opensearch/{leader_id} -m {ops_test.model.name} -- {cmd}"
+    exec_cmd = f"juju exec -u wazuh-indexer/{leader_id} -m {ops_test.model.name} -- {cmd}"
     try:
         # The "normal" subprocess.run with "export ...; ..." cmd was failing
         # Noticed that, for this case, canonical/jhack uses shlex instead to split.
