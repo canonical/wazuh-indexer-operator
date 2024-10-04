@@ -395,7 +395,6 @@ async def http_request(
             return resp.status_code
 
         if json_resp:
-            logger.error(json_resp)
             return resp.json()
 
         logger.info(f"\n{resp.text}")
