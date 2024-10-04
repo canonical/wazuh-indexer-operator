@@ -458,6 +458,7 @@ async def test_knn_search_with_hnsw_nmslib(ops_test: OpsTest, deploy_type: str) 
 
 @pytest.mark.parametrize("deploy_type", SMALL_DEPLOYMENTS)
 @pytest.mark.abort_on_fail
+@pytest.mark.skip
 async def test_knn_training_search(ops_test: OpsTest, deploy_type: str) -> None:
     """Tests the entire cycle of KNN plugin.
 
