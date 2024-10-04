@@ -626,6 +626,7 @@ async def test_normal_user_permissions(ops_test: OpsTest):
 @pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
 @pytest.mark.group(1)
 @pytest.mark.abort_on_fail
+@pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
 async def test_relation_broken(ops_test: OpsTest):
     """Test that the user is removed when the relation is broken."""
     # Retrieve the relation user.
