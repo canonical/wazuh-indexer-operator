@@ -683,6 +683,7 @@ async def test_relation_broken(ops_test: OpsTest):
 @pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
 @pytest.mark.group(1)
 @pytest.mark.abort_on_fail
+@pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
 async def test_data_persists_on_relation_rejoin(ops_test: OpsTest):
     """Verify that if we recreate a relation, we can access the same index."""
     client_relation = await ops_test.model.integrate(
