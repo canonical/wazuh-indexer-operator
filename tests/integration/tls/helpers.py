@@ -28,7 +28,7 @@ async def check_security_index_initialised(ops_test: OpsTest, unit_ip: str) -> b
     unit_ip_address = ipaddress.ip_address(unit_ip)
     url = f"https://{unit_ip}:9200/.opendistro_security",
     if isinstance(unit_ip_address, ipaddress.IPv6Address):
-        url = f"http://[{str(unit_ip_address)}]:9200/.opendistro_security"
+        url = f"https://[{str(unit_ip_address)}]:9200/.opendistro_security"
     response = await http_request(
         ops_test,
         "HEAD",
@@ -56,7 +56,7 @@ async def check_unit_tls_configured(ops_test: OpsTest, unit_ip: str, unit_name: 
     unit_ip_address = ipaddress.ip_address(unit_ip)
     url = f"https://{unit_ip}:9200",
     if isinstance(unit_ip_address, ipaddress.IPv6Address):
-        url = f"http://[{str(unit_ip_address)}]:9200"
+        url = f"https://[{str(unit_ip_address)}]:9200"
 
     response = await http_request(ops_test, "GET", url)
     return response["name"] == unit_name
