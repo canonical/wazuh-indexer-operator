@@ -26,7 +26,7 @@ async def check_security_index_initialised(ops_test: OpsTest, unit_ip: str) -> b
         Whether The security index is initialised.
     """
     unit_ip_address = ipaddress.ip_address(unit_ip)
-    url = f"https://{unit_ip}:9200/.opendistro_security",
+    url = f"https://{unit_ip}:9200/.opendistro_security"
     if isinstance(unit_ip_address, ipaddress.IPv6Address):
         url = f"https://[{str(unit_ip_address)}]:9200/.opendistro_security"
     response = await http_request(
