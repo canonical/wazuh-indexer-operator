@@ -4,7 +4,6 @@
 import ipaddress
 from typing import Dict
 
-import logging
 import requests
 from pytest_operator.plugin import OpsTest
 from tenacity import retry, stop_after_attempt, wait_fixed, wait_random
