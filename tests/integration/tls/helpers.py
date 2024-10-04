@@ -54,7 +54,7 @@ async def check_unit_tls_configured(ops_test: OpsTest, unit_ip: str, unit_name: 
         Whether the node is up: no TLS config issues and TLS on HTTP layer successful.
     """
     unit_ip_address = ipaddress.ip_address(unit_ip)
-    url = f"https://{unit_ip}:9200",
+    url = f"https://{unit_ip}:9200"
     if isinstance(unit_ip_address, ipaddress.IPv6Address):
         url = f"https://[{str(unit_ip_address)}]:9200"
 
