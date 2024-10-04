@@ -12,8 +12,6 @@ from tenacity import retry, stop_after_attempt, wait_fixed, wait_random
 from ..helpers import get_secret_by_label, http_request
 
 
-logger = logging.getLogger(__name__)
-
 @retry(
     wait=wait_fixed(wait=5) + wait_random(0, 5),
     stop=stop_after_attempt(15),
