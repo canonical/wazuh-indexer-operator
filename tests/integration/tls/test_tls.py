@@ -127,8 +127,6 @@ async def test_tls_renewal(ops_test: OpsTest) -> None:
         apps_statuses=["active"],
         units_statuses=["active"],
         wait_for_exact_units=len(UNIT_IDS),
-        idle_period=15,
-        timeout=60,
     )
 
     updated_certs = await get_loaded_tls_certificates(ops_test, leader_unit_ip)
@@ -145,7 +143,6 @@ async def test_tls_renewal(ops_test: OpsTest) -> None:
         action_name="set-tls-private-key",
         params={"category": "unit-http"},
     )
-    print("ENTROOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO2")
 
     await wait_until(
         ops_test,
@@ -154,16 +151,13 @@ async def test_tls_renewal(ops_test: OpsTest) -> None:
         units_statuses=["active"],
         wait_for_exact_units=len(UNIT_IDS),
         idle_period=5,
-        timeout=60,
     )
-    print("ENTROOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO3")
 
     updated_certs = await get_loaded_tls_certificates(ops_test, units[non_leader_id])
     assert (
         updated_certs["http_certificates_list"][0]["not_before"]
         > current_certs["http_certificates_list"][0]["not_before"]
     )
-    print("ENTROOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO4")
 
 
 @pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
