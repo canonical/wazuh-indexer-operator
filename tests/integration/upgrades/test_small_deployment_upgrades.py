@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 OPENSEARCH_ORIGINAL_CHARM_NAME = "wazuh-indexer"
-OPENSEARCH_CHANNEL = "4/edge"
+OPENSEARCH_CHANNEL = "latest/edge"
 
 
 STARTING_VERSION = "4.8.2"
