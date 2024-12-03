@@ -8,6 +8,11 @@ description: |
   Machine charm for Wazuh Indexer
 summary: |
   Machine charm for Wazuh Indexer
+link:
+  contact: https://launchpad.net/~canonical-is-devops
+  documentation: https://discourse.charmhub.io/t/wazuh-indexer-documentation-overview/16071
+  issues: https://github.com/canonical/wazuh-indexer-operator/issues
+  source: https://github.com/canonical/wazuh-indexer-operator
 
 peers:
   opensearch-peers:
