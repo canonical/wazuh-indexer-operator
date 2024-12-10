@@ -3,6 +3,9 @@ The [Wazuh Indexer](https://documentation.wazuh.com/current/user-manual/wazuh-in
 full-text search and analytics engine for security data based on [OpenSearch](http://opensearch.org/).
 Consequently, this charm is a Charmed [OpenSearch](https://github.com/canonical/opensearch-operator) fork.
 
+When deployed and integrated with the [Wazuh Server charm](https://charmhub.io/wazuh-server),
+the Wazuh Indexer charm expands the capabilities that OpenSearch would provide. See the Server charm's documentation for more details. 
+
 For the complete documentation, refer to [upstream](https://charmhub.io/opensearch).
 
 ## Project and community
