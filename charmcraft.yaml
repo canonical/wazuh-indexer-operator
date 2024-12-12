@@ -10,9 +10,6 @@ bases:
       - name: "ubuntu"
         channel: "22.04"
 parts:
-  files:
-    plugin: dump
-    source: .
   charm:
     override-build: |
       rustup default stable
