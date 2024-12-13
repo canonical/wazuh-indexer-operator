@@ -176,6 +176,7 @@ async def test_upgrade_between_versions(
 @pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
 @pytest.mark.group("happy_path_upgrade")
 @pytest.mark.abort_on_fail
+@pytest.mark.skip("Not enough revisions in charmhub yet")
 async def test_upgrade_to_local(
     ops_test: OpsTest, c_writes: ContinuousWrites, c_writes_runner
 ) -> None:
@@ -207,6 +208,7 @@ async def test_deploy_from_version(ops_test: OpsTest, version) -> None:
 @pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
 @pytest.mark.parametrize("version", UPGRADE_INITIAL_VERSION)
 @pytest.mark.abort_on_fail
+@pytest.mark.skip("Not enough revisions in charmhub yet")
 async def test_upgrade_rollback_from_local(
     ops_test: OpsTest, c_writes: ContinuousWrites, c_writes_runner, version
 ) -> None:
