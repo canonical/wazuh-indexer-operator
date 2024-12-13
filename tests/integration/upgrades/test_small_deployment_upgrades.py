@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 OPENSEARCH_ORIGINAL_CHARM_NAME = "wazuh-indexer"
-OPENSEARCH_CHANNEL = "4/edge"
+OPENSEARCH_CHANNEL = "latest/edge"
 
 
 STARTING_VERSION = "4.8.2"
@@ -102,7 +102,6 @@ async def _build_env(ops_test: OpsTest, version: str) -> None:
 @pytest.mark.group("happy_path_upgrade")
 @pytest.mark.abort_on_fail
 @pytest.mark.skip_if_deployed
-@pytest.mark.skip("No revisions in charmhub yet")
 async def test_deploy_latest_from_channel(ops_test: OpsTest) -> None:
     """Deploy OpenSearch."""
     await _build_env(ops_test, STARTING_VERSION)
@@ -110,7 +109,6 @@ async def test_deploy_latest_from_channel(ops_test: OpsTest) -> None:
 
 @pytest.mark.group("happy_path_upgrade")
 @pytest.mark.abort_on_fail
-@pytest.mark.skip("No revisions in charmhub yet")
 async def test_upgrade_between_versions(
     ops_test: OpsTest, c_writes: ContinuousWrites, c_writes_runner
 ) -> None:
@@ -178,7 +176,7 @@ async def test_upgrade_between_versions(
 @pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
 @pytest.mark.group("happy_path_upgrade")
 @pytest.mark.abort_on_fail
-@pytest.mark.skip("No revisions in charmhub yet")
+@pytest.mark.skip("Not enough revisions in charmhub yet")
 async def test_upgrade_to_local(
     ops_test: OpsTest, c_writes: ContinuousWrites, c_writes_runner
 ) -> None:
@@ -202,7 +200,6 @@ async def test_upgrade_to_local(
 @pytest.mark.parametrize("version", UPGRADE_INITIAL_VERSION)
 @pytest.mark.abort_on_fail
 @pytest.mark.skip_if_deployed
-@pytest.mark.skip("No revisions in charmhub yet")
 async def test_deploy_from_version(ops_test: OpsTest, version) -> None:
     """Deploy OpenSearch."""
     await _build_env(ops_test, version)
@@ -211,7 +208,7 @@ async def test_deploy_from_version(ops_test: OpsTest, version) -> None:
 @pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
 @pytest.mark.parametrize("version", UPGRADE_INITIAL_VERSION)
 @pytest.mark.abort_on_fail
-@pytest.mark.skip("No revisions in charmhub yet")
+@pytest.mark.skip("Not enough revisions in charmhub yet")
 async def test_upgrade_rollback_from_local(
     ops_test: OpsTest, c_writes: ContinuousWrites, c_writes_runner, version
 ) -> None:
@@ -245,7 +242,7 @@ async def test_upgrade_rollback_from_local(
             wait_for_exact_units={
                 APP_NAME: 3,
             },
-            timeout=1400,
+            timeout=2400,
             idle_period=IDLE_PERIOD,
         )
 
@@ -267,7 +264,7 @@ async def test_upgrade_rollback_from_local(
             wait_for_exact_units={
                 APP_NAME: 3,
             },
-            timeout=1400,
+            timeout=2400,
             idle_period=IDLE_PERIOD,
         )
         await refresh(
@@ -284,7 +281,7 @@ async def test_upgrade_rollback_from_local(
             wait_for_exact_units={
                 APP_NAME: 3,
             },
-            timeout=1400,
+            timeout=2400,
             idle_period=IDLE_PERIOD,
         )
 
@@ -292,7 +289,6 @@ async def test_upgrade_rollback_from_local(
 @pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
 @pytest.mark.parametrize("version", UPGRADE_INITIAL_VERSION)
 @pytest.mark.abort_on_fail
-@pytest.mark.skip("No revisions in charmhub yet")
 async def test_upgrade_from_version_to_local(
     ops_test: OpsTest, c_writes: ContinuousWrites, c_writes_runner, version
 ) -> None:
