@@ -1,7 +1,8 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-"""Unit test for the opensearch_plugins library."""
+"""Unit test for the opensearch keystore library."""
+import os
 import unittest
 from unittest.mock import MagicMock, call
 
@@ -23,6 +24,7 @@ class TestOpenSearchKeystore(unittest.TestCase):
         self.harness.begin()
         self.charm = self.harness.charm
         self.keystore = self.charm.plugin_manager._keystore
+        os.path.exists = MagicMock(return_value=True)
 
     def test_list_except_keystore_not_found(self):
         """Throws exception for missing file when calling list."""
@@ -35,7 +37,7 @@ class TestOpenSearchKeystore(unittest.TestCase):
         )
         succeeded = False
         try:
-            self.keystore.list()
+            self.keystore.list
         except OpenSearchKeystoreError as e:
             assert "ERROR: OpenSearch keystore not found at [" in str(e)
             succeeded = True
@@ -46,13 +48,13 @@ class TestOpenSearchKeystore(unittest.TestCase):
     def test_keystore_list(self):
         """Tests opensearch-keystore list with real output."""
         self.charm.opensearch.run_bin = MagicMock(return_value=RETURN_LIST_KEYSTORE)
-        assert ["key1", "key2", "keystore.seed"] == self.keystore.list()
+        assert ["key1", "key2", "keystore.seed"] == self.keystore.list
 
     def test_keystore_add_keypair(self) -> None:
         """Add data to keystore."""
         self.charm.opensearch.request = MagicMock(return_value={"status": 200})
         self.charm.opensearch.run_bin = MagicMock(return_value="")
-        self.keystore.add({"key1": "secret1"})
+        self.keystore._add("key1", "secret1")
         self.charm.opensearch.run_bin.assert_has_calls(
             [call("keystore", "add --force key1", stdin="secret1\n")]
         )
@@ -61,5 +63,5 @@ class TestOpenSearchKeystore(unittest.TestCase):
         """Delete data to keystore."""
         self.charm.opensearch.request = MagicMock(return_value={"status": 200})
         self.charm.opensearch.run_bin = MagicMock(return_value="")
-        self.keystore.delete({"key1": "secret1"})
+        self.keystore._delete("key1")
         self.charm.opensearch.run_bin.assert_has_calls([call("keystore", "remove key1")])

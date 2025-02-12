@@ -333,6 +333,11 @@ class TestOpenSearchProvider(unittest.TestCase):
         return_value={"status": 200, "version": {"number": "2.12"}},
     )
     @patch(
+        "charms.opensearch.v0.opensearch_distro.OpenSearchDistribution.version",
+        return_value="2.12",
+        new_callable=PropertyMock,
+    )
+    @patch(
         "charms.opensearch.v0.opensearch_distro.OpenSearchDistribution.is_node_up",
         return_value=True,
     )
@@ -346,6 +351,7 @@ class TestOpenSearchProvider(unittest.TestCase):
         _nodes,
         _is_node_up,
         ____,
+        ______,
     ):
         self.harness.set_leader(True)
         node = MagicMock()

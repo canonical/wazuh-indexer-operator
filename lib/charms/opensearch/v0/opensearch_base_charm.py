@@ -72,6 +72,7 @@ from charms.opensearch.v0.opensearch_exceptions import (
 from charms.opensearch.v0.opensearch_fixes import OpenSearchFixes
 from charms.opensearch.v0.opensearch_health import HealthColors, OpenSearchHealth
 from charms.opensearch.v0.opensearch_internal_data import RelationDataStore, Scope
+from charms.opensearch.v0.opensearch_keystore import OpenSearchKeystoreNotReadyError
 from charms.opensearch.v0.opensearch_locking import OpenSearchNodeLock
 from charms.opensearch.v0.opensearch_nodes_exclusions import OpenSearchExclusions
 from charms.opensearch.v0.opensearch_peer_clusters import (
@@ -203,6 +204,7 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
         self.node_lock = OpenSearchNodeLock(self)
 
         self.plugin_manager = OpenSearchPluginManager(self)
+
         self.backup = backup(self)
 
         self.user_manager = OpenSearchUserManager(self)
@@ -639,7 +641,9 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
                 HealthColors.GREEN,
                 HealthColors.IGNORE,
             ]:
-                event.defer()
+                logger.warning(
+                    f"Update status: exclusions updated and cluster health is {health}."
+                )
 
             if health == HealthColors.UNKNOWN:
                 return
@@ -709,11 +713,8 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
             self._handle_change_to_main_orchestrator_if_needed(event, previous_deployment_desc)
 
         if self.upgrade_in_progress:
-            # The following changes in _on_config_changed are not supported during an upgrade
-            # Therefore, we leave now
             logger.warning(
-                "Changing config during an upgrade is not supported. The charm may be in a broken, "
-                "unrecoverable state"
+                "Changing config during an upgrade is not supported. The charm may be in a broken, unrecoverable state"
             )
             event.defer()
             return
@@ -722,27 +723,34 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
         plugin_needs_restart = False
 
         try:
-            if not self.plugin_manager.check_plugin_manager_ready():
-                raise OpenSearchNotFullyReadyError()
-
-            if self.unit.is_leader():
-                self.status.set(MaintenanceStatus(PluginConfigCheck), app=True)
+            original_status = None
+            if self.unit.status.message not in [
+                PluginConfigChangeError,
+                PluginConfigCheck,
+            ]:
+                logger.debug(f"Plugin manager: storing status {self.unit.status.message}")
+                original_status = self.unit.status
+                self.status.set(MaintenanceStatus(PluginConfigCheck))
 
             plugin_needs_restart = self.plugin_manager.run()
+
         except (OpenSearchNotFullyReadyError, OpenSearchPluginError) as e:
             if isinstance(e, OpenSearchNotFullyReadyError):
                 logger.warning("Plugin management: cluster not ready yet at config changed")
             else:
-                self.status.set(BlockedStatus(PluginConfigChangeError), app=True)
+                logger.warning(f"{PluginConfigChangeError}: {str(e)}")
+                self.status.set(BlockedStatus(PluginConfigChangeError))
             event.defer()
-            # Decided to defer the event. We can clean up the status and reset it once the
-            # config-changed is called again.
-            if self.unit.is_leader():
-                self.status.clear(PluginConfigCheck, app=True)
+            self.status.clear(PluginConfigCheck)
+        except OpenSearchKeystoreNotReadyError:
+            logger.warning("Keystore not ready yet")
+            # defer, and let it finish the status clearing down below
+            event.defer()
         else:
-            if self.unit.is_leader():
-                self.status.clear(PluginConfigCheck, app=True)
-                self.status.clear(PluginConfigChangeError, app=True)
+            self.status.clear(PluginConfigChangeError)
+            self.status.clear(PluginConfigCheck)
+            if original_status:
+                self.status.set(original_status)
 
         if self.opensearch_peer_cm.deployment_desc():
             perf_profile_needs_restart = self.performance_profile.apply(
@@ -1235,7 +1243,7 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
                 nodes = self._get_nodes(True)
                 # do not add exclusions if it's the last unit to stop
                 # otherwise cluster manager election will be blocked when starting up again
-                # and re-using storage
+                # and reusing storage
                 if len(nodes) > 1:
                     # 1. Add current node to the voting + alloc exclusions
                     self.opensearch_exclusions.add_current(voting=True, allocation=not restart)
