@@ -65,3 +65,11 @@ variable "endpoint_bindings" {
   type        = map(string)
   default     = {}
 }
+
+# --------
+# Additional variables - needed for extensibility
+variable "main_model" {
+  description = "Model name of the main orchestrator (to detect same-model apps)"
+  type        = string
+  default     = null
+}
