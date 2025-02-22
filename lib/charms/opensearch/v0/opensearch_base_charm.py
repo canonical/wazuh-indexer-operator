@@ -765,15 +765,18 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
 
     def _on_set_password_action(self, event: ActionEvent):
         """Set new admin password from user input or generate if not passed."""
-        if self.upgrade_in_progress:
-            event.fail("Setting password not supported while upgrade in-progress")
+        if not self.opensearch_peer_cm.deployment_desc():
+            event.fail("The action can only be run once the deployment is complete.")
             return
         if self.opensearch_peer_cm.deployment_desc().typ != DeploymentType.MAIN_ORCHESTRATOR:
-            event.fail("The action can be run only on the leader unit of the main cluster.")
+            event.fail("The action can only be run on the main orchestrator cluster.")
+            return
+        if not self.unit.is_leader():
+            event.fail("The action can only be run on leader unit.")
             return
 
-        if not self.unit.is_leader():
-            event.fail("The action can be run only on leader unit.")
+        if self.upgrade_in_progress:
+            event.fail("Setting password not supported while upgrade in-progress")
             return
 
         user_name = event.params.get("username")
@@ -801,6 +804,10 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
 
     def _on_get_password_action(self, event: ActionEvent):
         """Return the password and cert chain for the admin user of the cluster."""
+        if not self.opensearch_peer_cm.deployment_desc():
+            event.fail("The action can only be run once the deployment is complete.")
+            return
+
         user_name = event.params.get("username")
         if user_name not in OpenSearchUsers:
             event.fail(f"Only the {OpenSearchUsers} username is allowed for this action.")
