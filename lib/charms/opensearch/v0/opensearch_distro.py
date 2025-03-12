@@ -26,7 +26,11 @@ from charms.opensearch.v0.helper_charm import (
 from charms.opensearch.v0.helper_cluster import Node
 from charms.opensearch.v0.helper_conf_setter import YamlConfigSetter
 from charms.opensearch.v0.helper_http import error_http_retry_log
-from charms.opensearch.v0.helper_networking import get_host_ip, is_reachable
+from charms.opensearch.v0.helper_networking import (
+    get_host_ip,
+    get_host_public_ip,
+    is_reachable,
+)
 from charms.opensearch.v0.models import App, StartMode
 from charms.opensearch.v0.opensearch_exceptions import (
     OpenSearchCmdError,
@@ -434,6 +438,13 @@ class OpenSearchDistribution(ABC):
     def network_hosts(self) -> List[str]:
         """All HTTP/Transport hosts for the current node."""
         return [socket.getfqdn(), self.host]
+
+    @property
+    def public_address(self) -> str:
+        """Get the public bind address of this unit."""
+        return get_host_public_ip() or str(
+            self._charm.model.get_binding(self._peer_relation_name).network.ingress_address
+        )
 
     @property
     def port(self) -> int:

@@ -175,6 +175,9 @@ class OpenSearchConfig:
             self._opensearch.config.put(
                 self.CONFIG_YML, "network.publish_host", self._opensearch.host
             )
+        self._opensearch.config.put(
+            self.CONFIG_YML, "http.publish_host", self._opensearch.public_address
+        )
 
         self._opensearch.config.put(
             self.CONFIG_YML, "node.roles", roles, inline_array=len(roles) == 0
@@ -290,6 +293,11 @@ class OpenSearchConfig:
                 "network.publish_host",
                 node.get("network.publish_host"),
                 self._opensearch.host,
+            ),
+            NetworkHost(
+                "http.publish_host",
+                node.get("http.publish_host"),
+                self._opensearch.public_address,
             ),
         ]:
             if not host.old:
