@@ -15,4 +15,6 @@ resource "juju_application" "wazuh_indexer" {
   config      = var.config
   constraints = var.constraints
   units       = var.units
+
+  expose {}
 }
