@@ -17,7 +17,7 @@ output "requires" {
 output "provides" {
   value = {
     cos_agent                 = "cos_agent"
-    openesarch_client         = "openesarch-client"
+    opensearch_client         = "opensearch-client"
     peer_cluster_orchestrator = "peer-cluster-orchestrator"
   }
 }
