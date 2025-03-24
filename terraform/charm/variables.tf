@@ -4,7 +4,7 @@
 variable "app_name" {
   description = "Name of the application in the Juju model."
   type        = string
-  default     = "wazuh-server"
+  default     = "wazuh-indexer"
 }
 
 
@@ -15,7 +15,7 @@ variable "channel" {
 }
 
 variable "config" {
-  description = "Application config. Details about available options can be found at https://charmhub.io/wazuh-server/configurations."
+  description = "Application config. Details about available options can be found at https://charmhub.io/wazuh-indexer/configurations."
   type        = map(string)
   default     = {}
 }
@@ -47,6 +47,6 @@ variable "base" {
 variable "units" {
   description = "Number of units to deploy"
   type        = number
-  default     = 1
+  default     = 3
 }
 
