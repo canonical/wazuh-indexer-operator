@@ -16,7 +16,7 @@ on:
 jobs:
   lint:
     name: Lint
-    uses: canonical/data-platform-workflows/.github/workflows/lint.yaml@v22.0.0
+    uses: canonical/data-platform-workflows/.github/workflows/lint.yaml@v24.0.6
 
   unit-test:
     name: Unit test charm
@@ -40,7 +40,7 @@ jobs:
         path:
         - .
         - ./tests/integration/relations/opensearch_provider/application-charm/
-    uses: canonical/data-platform-workflows/.github/workflows/build_charm.yaml@v22.0.0
+    uses: canonical/data-platform-workflows/.github/workflows/build_charm.yaml@v24.0.6
     with:
       path-to-charm-directory: ${{ matrix.path }}
       cache: true
@@ -51,7 +51,7 @@ jobs:
       - lint
       - unit-test
       - build
-    uses: canonical/data-platform-workflows/.github/workflows/integration_test_charm.yaml@v22.0.0
+    uses: canonical/data-platform-workflows/.github/workflows/integration_test_charm.yaml@v24.0.6
     with:
       artifact-prefix: packed-charm-cache-true
       cloud: lxd
