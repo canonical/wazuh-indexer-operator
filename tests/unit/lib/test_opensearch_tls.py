@@ -1589,7 +1589,7 @@ class TestOpenSearchTLS(unittest.TestCase):
         # No action taken, no change on status or certificates
         assert run_cmd.call_count == 0
         assert self.harness.model.unit.status == original_status
-        self.charm.on.certificate_available.defer.assert_called_once()
+        self.charm.on.certificate_available.defer.called_once()
         assert self.secret_store.get_object(Scope.APP, CertType.APP_ADMIN.val) == {
             "csr": csr,
             "keystore-password": "keystore_12345",
@@ -1688,7 +1688,7 @@ class TestOpenSearchTLS(unittest.TestCase):
         # No action taken, no change on status or certificates
         assert run_cmd.call_count == 0
         assert self.harness.model.unit.status == original_status
-        self.charm.on.certificate_available.defer.assert_called_once()
+        self.charm.on.certificate_available.defer.called_once()
         assert self.secret_store.get_object(Scope.APP, CertType.APP_ADMIN.val) == {
             "csr": csr,
             "keystore-password": "keystore_12345",
