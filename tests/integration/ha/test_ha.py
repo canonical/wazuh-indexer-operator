@@ -59,7 +59,7 @@ async def test_build_and_deploy(ops_test: OpsTest) -> None:
     # Deploy TLS Certificates operator.
     config = {"ca-common-name": "CN_CA"}
     await asyncio.gather(
-        ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="stable", config=config),
+        ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="latest/stable", config=config),
         ops_test.model.deploy(my_charm, num_units=3, series=SERIES),
     )
 

@@ -76,7 +76,7 @@ async def _build_env(ops_test: OpsTest, version: str) -> None:
 
     # Deploy TLS Certificates operator.
     config = {"ca-common-name": "CN_CA"}
-    await ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="stable", config=config)
+    await ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="latest/stable", config=config)
 
     # Relate it to OpenSearch to set up TLS.
     await ops_test.model.integrate(APP_NAME, TLS_CERTIFICATES_APP_NAME)

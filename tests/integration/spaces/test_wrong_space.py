@@ -53,7 +53,7 @@ async def test_build_and_deploy(ops_test: OpsTest, lxd_spaces) -> None:
     config = {"ca-common-name": "CN_CA"}
     await ops_test.model.deploy(
         TLS_CERTIFICATES_APP_NAME,
-        channel="stable",
+        channel="latest/stable",
         constraints="spaces=alpha,client,cluster,backup",
         bind={"": "cluster"},
         config=config,
