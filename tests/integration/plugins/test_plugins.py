@@ -218,7 +218,9 @@ async def test_large_deployment_build_and_deploy(ops_test: OpsTest, deploy_type:
     data_hot_conf = {"cluster_name": "plugins-test", "init_hold": True, "roles": "data.hot,ml"}
 
     await asyncio.gather(
-        ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="latest/stable", config=tls_config),
+        ops_test.model.deploy(
+            TLS_CERTIFICATES_APP_NAME, channel="latest/stable", config=tls_config
+        ),
         ops_test.model.deploy(
             my_charm,
             application_name=MAIN_ORCHESTRATOR_NAME,
