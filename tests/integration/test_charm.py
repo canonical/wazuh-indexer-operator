@@ -56,7 +56,7 @@ async def test_deploy_and_remove_single_unit(ops_test: OpsTest) -> None:
     )
     # Deploy TLS Certificates operator.
     config = {"ca-common-name": "CN_CA"}
-    await ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="stable", config=config)
+    await ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="latest/stable", config=config)
     # Relate it to OpenSearch to set up TLS.
     await ops_test.model.integrate(APP_NAME, TLS_CERTIFICATES_APP_NAME)
     await wait_until(
@@ -116,7 +116,7 @@ async def test_actions_get_admin_password(ops_test: OpsTest) -> None:
 
     # Deploy TLS Certificates operator.
     config = {"ca-common-name": "CN_CA"}
-    await ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="stable", config=config)
+    await ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="latest/stable", config=config)
     # Relate it to OpenSearch to set up TLS.
     await ops_test.model.integrate(APP_NAME, TLS_CERTIFICATES_APP_NAME)
     await wait_until(

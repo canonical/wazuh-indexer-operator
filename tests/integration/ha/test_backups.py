@@ -233,7 +233,7 @@ async def test_small_deployment_build_and_deploy(
     config = {"ca-common-name": "CN_CA"}
 
     await asyncio.gather(
-        ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="stable", config=config),
+        ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="latest/stable", config=config),
         ops_test.model.deploy(S3_INTEGRATOR, channel=S3_INTEGRATOR_CHANNEL),
         ops_test.model.deploy(my_charm, num_units=3, series=SERIES),
     )
@@ -286,7 +286,7 @@ async def test_large_deployment_build_and_deploy(
     data_hot_conf = {"cluster_name": "backup-test", "init_hold": True, "roles": "data.hot"}
 
     await asyncio.gather(
-        ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="stable", config=tls_config),
+        ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="latest/stable", config=tls_config),
         ops_test.model.deploy(S3_INTEGRATOR, channel=S3_INTEGRATOR_CHANNEL),
         ops_test.model.deploy(
             my_charm,
@@ -573,7 +573,7 @@ async def test_restore_to_new_cluster(
     config = {"ca-common-name": "CN_CA"}
 
     await asyncio.gather(
-        ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="stable", config=config),
+        ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="latest/stable", config=config),
         ops_test.model.deploy(S3_INTEGRATOR, channel=S3_INTEGRATOR_CHANNEL),
         ops_test.model.deploy(my_charm, num_units=3, series=SERIES),
     )
@@ -675,7 +675,7 @@ async def test_build_deploy_and_test_status(ops_test: OpsTest) -> None:
     # Deploy TLS Certificates operator.
     config = {"ca-common-name": "CN_CA"}
     await asyncio.gather(
-        ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="stable", config=config),
+        ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="latest/stable", config=config),
         ops_test.model.deploy(S3_INTEGRATOR, channel=S3_INTEGRATOR_CHANNEL),
         ops_test.model.deploy(my_charm, num_units=3, series=SERIES),
     )

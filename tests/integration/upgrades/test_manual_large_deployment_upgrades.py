@@ -57,7 +57,7 @@ async def test_large_deployment_deploy_original_charm(ops_test: OpsTest) -> None
     data_hot_conf = {"cluster_name": "backup-test", "init_hold": True, "roles": "data.hot"}
 
     await asyncio.gather(
-        ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="stable", config=tls_config),
+        ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="latest/stable", config=tls_config),
         ops_test.model.deploy(
             OPENSEARCH_ORIGINAL_CHARM_NAME,
             application_name=OPENSEARCH_MAIN_APP_NAME,
