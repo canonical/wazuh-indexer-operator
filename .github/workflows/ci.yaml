@@ -12,15 +12,19 @@ on:
     - cron: '53 0 * * *' # Daily at 00:53 UTC
   # Triggered on push to branch "main" by .github/workflows/release.yaml
   workflow_call:
+    outputs:
+      artifact-prefix:
+        description: build_charm.yaml `artifact-prefix` output
+        value: ${{ jobs.build.outputs.artifact-prefix }}
 
 jobs:
   lint:
     name: Lint
-    uses: canonical/data-platform-workflows/.github/workflows/lint.yaml@v22.0.0
+    uses: canonical/data-platform-workflows/.github/workflows/lint.yaml@v29.0.0
 
   unit-test:
     name: Unit test charm
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -40,10 +44,10 @@ jobs:
         path:
         - .
         - ./tests/integration/relations/opensearch_provider/application-charm/
-    uses: canonical/data-platform-workflows/.github/workflows/build_charm.yaml@v22.0.0
+    uses: canonical/data-platform-workflows/.github/workflows/build_charm.yaml@v29.0.0
     with:
       path-to-charm-directory: ${{ matrix.path }}
-      cache: true
+      cache: false
 
   integration-test:
     name: Integration test charm | 3.5.3
@@ -51,9 +55,9 @@ jobs:
       - lint
       - unit-test
       - build
-    uses: canonical/data-platform-workflows/.github/workflows/integration_test_charm.yaml@v22.0.0
+    uses: canonical/data-platform-workflows/.github/workflows/integration_test_charm.yaml@v29.0.0
     with:
-      artifact-prefix: packed-charm-cache-true
+      artifact-prefix: ${{ needs.build.outputs.artifact-prefix }}
       cloud: lxd
       juju-agent-version: 3.5.3
       _beta_allure_report: true
