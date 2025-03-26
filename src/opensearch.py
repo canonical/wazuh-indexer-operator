@@ -36,7 +36,7 @@ from utils import extract_tarball
 
 logger = logging.getLogger(__name__)
 
-SNAP_REVISION = "4" # Keep in sync with `workload_version` file
+SNAP_REVISION = "4"  # Keep in sync with `workload_version` file
 
 
 class OpenSearchSnap(OpenSearchDistribution):
