@@ -268,7 +268,7 @@ async def test_check_pinned_revision(ops_test: OpsTest) -> None:
         ).replace("\r\n", "\n")
     )["installed"].split()
     logger.info(f"Installed snap: {installed_info}")
-    assert installed_info[1] == "(3)"
+    assert installed_info[1] == "(4)"
     assert installed_info[3] == "held"
 
 
