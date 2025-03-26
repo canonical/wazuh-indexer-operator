@@ -33,7 +33,6 @@ STARTING_VERSION = "4.8.2"
 
 VERSION_TO_REVISION = {
     STARTING_VERSION: 1,
-    "4.9.2": 4,
 }
 
 
