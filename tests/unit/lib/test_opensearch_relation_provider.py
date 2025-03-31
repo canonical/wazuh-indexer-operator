@@ -33,7 +33,7 @@ from charm import OpenSearchOperatorCharm
 from tests.helpers import patch_network_get
 from tests.unit.helpers import mock_response_nodes, mock_response_root
 
-DASHBOARDS_CHARM = "opensearch-dashboards"
+DASHBOARDS_CHARM = "wazuh-dashboard"
 
 
 @patch_network_get("1.1.1.1")
