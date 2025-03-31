@@ -41,7 +41,7 @@ NUM_UNITS = 3
 
 FIRST_RELATION_NAME = "first-index"
 SECOND_RELATION_NAME = "second-index"
-DASHBOARDS_RELATION_NAME = "opensearch-client"
+DASHBOARDS_RELATION_NAME = "opensearch-dashboards"
 ADMIN_RELATION_NAME = "admin"
 PROTECTED_INDICES = [
     ".opendistro_security",
@@ -78,7 +78,7 @@ async def test_create_relation(ops_test: OpsTest, application_charm, opensearch_
             application_name=DASHBOARDS_APP_NAME,
             channel="latest/edge",
             series=SERIES,
-            revision=1,
+            revision=22,
         ),
         ops_test.model.deploy(
             opensearch_charm,
