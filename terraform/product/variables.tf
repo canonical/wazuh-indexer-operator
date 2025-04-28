@@ -8,14 +8,21 @@ variable "indexer_model" {
 
 variable "grafana_agent" {
   type = object({
-    app_name    = optional(string, "grafana-agent")
-    channel     = optional(string, "latest/stable")
-    config      = optional(map(string), {})
-    constraints = optional(string, "arch=amd64")
-    revision    = optional(number)
-    base        = optional(string, "ubuntu@22.04")
+    app_name = optional(string, "grafana-agent")
+    channel  = optional(string, "latest/stable")
+    config   = optional(map(string), {})
+    revision = optional(number)
   })
 }
+
+variable "sysconfig" {
+  type = object({
+    app_name = optional(string, "sysconfig")
+    channel  = optional(string, "latest/stable")
+    revision = optional(number)
+  })
+}
+
 
 variable "wazuh_indexer" {
   type = object({
