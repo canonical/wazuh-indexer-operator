@@ -19,7 +19,6 @@ variable "sysconfig" {
   type = object({
     app_name = optional(string, "sysconfig")
     channel  = optional(string, "latest/stable")
-    config   = optional(map(string), {})
     revision = optional(number)
   })
 }
