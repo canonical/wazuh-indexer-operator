@@ -24,6 +24,13 @@ output "grafana_agent_provides" {
   }
 }
 
+output "wazuh_indexer_requires" {
+  value = {
+    certificates   = "certificates"
+    s3_credentials = "s3-credentials"
+  }
+}
+
 output "wazuh_indexer_provides" {
   value = {
     opensearch_client = "opensearch-client"
