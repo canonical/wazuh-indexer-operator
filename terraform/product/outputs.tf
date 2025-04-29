@@ -8,7 +8,7 @@ output "app_name" {
 
 output "grafana_agent_app_name" {
   description = "Name of the deployed Grafana agent application."
-  value       = module.grafana_agent.app_name
+  value       = juju_application.grafana_agent.name
 }
 
 output "grafana_agent_requires" {
