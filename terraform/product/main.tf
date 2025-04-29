@@ -60,7 +60,7 @@ resource "juju_application" "grafana_agent" {
 }
 
 resource "juju_integration" "grafana_agent_indexer" {
-  model = juju_model.wazuh_indexer.name
+  model = data.juju_model.wazuh_indexer.name
 
   application {
     name     = module.wazuh_indexer.app_name
@@ -68,7 +68,7 @@ resource "juju_integration" "grafana_agent_indexer" {
   }
 
   application {
-    name     = juju_application.grafana_agent.app_name
+    name     = juju_application.grafana_agent.name
     endpoint = "cos-agent"
   }
 }
