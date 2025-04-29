@@ -2,7 +2,7 @@
 # See LICENSE file for licensing details.
 
 data "juju_model" "wazuh_indexer" {
-  name = var.indexer_model
+  name = var.model
 }
 
 module "wazuh_indexer" {
