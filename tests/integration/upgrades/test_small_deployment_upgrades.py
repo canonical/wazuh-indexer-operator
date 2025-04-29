@@ -9,7 +9,7 @@ from pytest_operator.plugin import OpsTest
 
 from ..ha.continuous_writes import ContinuousWrites
 from ..ha.helpers import app_name
-from ..helpers import APP_NAME, IDLE_PERIOD, MODEL_CONFIG, run_action, set_watermark
+from ..helpers import APP_NAME, MODEL_CONFIG, run_action, set_watermark
 from ..helpers_deployments import get_application_units, wait_until
 from ..tls.test_tls import TLS_CERTIFICATES_APP_NAME, TLS_STABLE_CHANNEL
 from .helpers import assert_upgrade_to_local, refresh
@@ -129,7 +129,7 @@ async def test_upgrade_between_versions(
         )
         assert action.status == "completed"
 
-        async with ops_test.fast_forward():
+        async with ops_test.fast_forward("60s"):
             logger.info("Refresh the charm")
             await refresh(ops_test, app, revision=rev)
 
@@ -142,7 +142,7 @@ async def test_upgrade_between_versions(
                     APP_NAME: 3,
                 },
                 timeout=1400,
-                idle_period=IDLE_PERIOD,
+                idle_period=30,
             )
 
             logger.info("Upgrade finished")
@@ -166,7 +166,7 @@ async def test_upgrade_between_versions(
                     APP_NAME: 3,
                 },
                 timeout=1400,
-                idle_period=IDLE_PERIOD,
+                idle_period=30,
             )
 
 
@@ -218,7 +218,7 @@ async def test_upgrade_rollback_from_local(
 
     logger.info("Build charm locally")
 
-    async with ops_test.fast_forward():
+    async with ops_test.fast_forward("60s"):
         logger.info("Refresh the charm")
         await refresh(ops_test, app, path=charm, config={"profile": "testing"})
 
@@ -231,7 +231,7 @@ async def test_upgrade_rollback_from_local(
                 APP_NAME: 3,
             },
             timeout=1400,
-            idle_period=IDLE_PERIOD,
+            idle_period=30,
         )
 
         logger.info(f"Rolling back to {version}")
@@ -255,7 +255,7 @@ async def test_upgrade_rollback_from_local(
                 APP_NAME: 3,
             },
             timeout=1400,
-            idle_period=IDLE_PERIOD,
+            idle_period=30,
         )
         await refresh(
             ops_test,
@@ -272,7 +272,7 @@ async def test_upgrade_rollback_from_local(
                 APP_NAME: 3,
             },
             timeout=1400,
-            idle_period=IDLE_PERIOD,
+            idle_period=30,
         )
 
 
