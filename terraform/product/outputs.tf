@@ -13,7 +13,7 @@ output "grafana_agent_app_name" {
 
 output "grafana_agent_requires" {
   value = {
-    logging-consumer  = "logging-consumer"
+    logging_consumer  = "logging-consumer"
     send_remote_write = "send-remote-write"
   }
 }
