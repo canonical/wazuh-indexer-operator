@@ -54,6 +54,7 @@ resource "juju_application" "grafana_agent" {
     name     = "grafana-agent"
     channel  = var.grafana_agent.channel
     revision = var.grafana_agent.revision
+    base     = var.wazuh_indexer.base
   }
 }
 
