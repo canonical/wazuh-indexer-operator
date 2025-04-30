@@ -1,7 +1,7 @@
 # Copyright 2025 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-variable "indexer_model" {
+variable "model" {
   description = "Reference to the VM Juju model to deploy the indexer charms to."
   type        = string
 }

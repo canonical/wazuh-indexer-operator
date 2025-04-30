@@ -2,7 +2,7 @@
 # See LICENSE file for licensing details.
 
 data "juju_model" "wazuh_indexer" {
-  name = var.indexer_model
+  name = var.model
 }
 
 module "wazuh_indexer" {
@@ -46,18 +46,21 @@ resource "juju_integration" "wazuh_indexer_sysconfig" {
   }
 }
 
-module "grafana_agent" {
-  source     = "git::https://github.com/canonical/grafana-agent-operator//terraform?ref=rev469&depth=1"
-  app_name   = var.wazuh_indexer.app_name
-  channel    = var.wazuh_indexer.channel
-  config     = var.wazuh_indexer.config
-  model_name = data.juju_model.wazuh_indexer.name
-  revision   = var.wazuh_indexer.revision
-  units      = 0
+resource "juju_application" "grafana_agent" {
+  name  = var.grafana_agent.app_name
+  model = data.juju_model.wazuh_indexer.name
+  trust = true
+
+  charm {
+    name     = "grafana-agent"
+    channel  = var.grafana_agent.channel
+    revision = var.grafana_agent.revision
+  }
+  units = 0
 }
 
 resource "juju_integration" "grafana_agent_indexer" {
-  model = juju_model.wazuh_indexer.name
+  model = data.juju_model.wazuh_indexer.name
 
   application {
     name     = module.wazuh_indexer.app_name
@@ -65,7 +68,7 @@ resource "juju_integration" "grafana_agent_indexer" {
   }
 
   application {
-    name     = module.grafana_agent.app_name
+    name     = juju_application.grafana_agent.name
     endpoint = "cos-agent"
   }
 }
