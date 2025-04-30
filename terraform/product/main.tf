@@ -20,7 +20,6 @@ module "wazuh_indexer" {
 resource "juju_application" "sysconfig" {
   name  = var.sysconfig.app_name
   model = data.juju_model.wazuh_indexer.name
-  units = 0
 
   charm {
     name     = "sysconfig"
@@ -56,7 +55,6 @@ resource "juju_application" "grafana_agent" {
     channel  = var.grafana_agent.channel
     revision = var.grafana_agent.revision
   }
-  units = 0
 }
 
 resource "juju_integration" "grafana_agent_indexer" {
