@@ -8,7 +8,7 @@ output "app_name" {
 
 output "grafana_agent_app_name" {
   description = "Name of the deployed Grafana agent application."
-  value       = module.grafana_agent.app_name
+  value       = juju_application.grafana_agent.name
 }
 
 output "grafana_agent_requires" {
@@ -21,5 +21,18 @@ output "grafana_agent_requires" {
 output "grafana_agent_provides" {
   value = {
     grafana_dashboards_provider = "grafana-dashboards-provider"
+  }
+}
+
+output "wazuh_indexer_requires" {
+  value = {
+    certificates   = "certificates"
+    s3_credentials = "s3-credentials"
+  }
+}
+
+output "wazuh_indexer_provides" {
+  value = {
+    opensearch_client = "opensearch-client"
   }
 }
