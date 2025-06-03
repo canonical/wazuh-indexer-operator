@@ -563,7 +563,7 @@ class TestOpenSearchTLS(unittest.TestCase):
             in run_cmd.call_args_list[1].args[0]
         )
         assert (
-            "/var/snap/opensearch/current/etc/opensearch"
+            "/var/snap/wazuh-indexer/current/etc/wazuh-indexer"
             in named_temporary_file.call_args_list[0][1]["dir"]
         )
 
@@ -711,7 +711,7 @@ class TestOpenSearchTLS(unittest.TestCase):
             in run_cmd.call_args_list[1].args[0]
         )
         assert (
-            "/var/snap/opensearch/current/etc/opensearch"
+            "/var/snap/wazuh-indexer/current/etc/wazuh-indexer"
             in named_temporary_file.call_args_list[0][1]["dir"]
         )
 
@@ -843,7 +843,7 @@ class TestOpenSearchTLS(unittest.TestCase):
             in run_cmd.call_args_list[2].args[0]
         )
         assert (
-            "/var/snap/opensearch/current/etc/opensearch"
+            "/var/snap/wazuh-indexer/current/etc/wazuh-indexer"
             in named_temporary_file.call_args_list[0][1]["dir"]
         )
         # NOTE: The new cert and chain are NOT saved into the keystore (disk)
@@ -1387,7 +1387,7 @@ class TestOpenSearchTLS(unittest.TestCase):
             == "True"
         )
         assert (
-            "/var/snap/opensearch/current/etc/opensearch"
+            "/var/snap/wazuh-indexer/current/etc/wazuh-indexer"
             in named_temporary_file.call_args_list[0][1]["dir"]
         )
         # Note that the old flag is left intact
@@ -1583,7 +1583,7 @@ class TestOpenSearchTLS(unittest.TestCase):
         )
         assert re.search("keytool .*-delete .*-alias old-ca", run_cmd.call_args_list[-1].args[0])
         assert (
-            "/var/snap/opensearch/current/etc/opensearch"
+            "/var/snap/wazuh-indexer/current/etc/wazuh-indexer"
             in named_temporary_file.call_args_list[0][1]["dir"]
         )
 
