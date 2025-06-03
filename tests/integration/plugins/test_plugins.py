@@ -5,6 +5,7 @@
 import asyncio
 import json
 import logging
+import subprocess
 
 import pytest
 from pytest_operator.plugin import OpsTest
@@ -15,15 +16,17 @@ from ..ha.helpers_data import bulk_insert, create_index, search
 from ..ha.test_horizontal_scaling import IDLE_PERIOD
 from ..helpers import (
     APP_NAME,
+    CONFIG_OPTS,
     MODEL_CONFIG,
-    SERIES,
     check_cluster_formation_successful,
     get_application_unit_ids_ips,
+    get_application_unit_ids_start_time,
     get_application_unit_names,
     get_leader_unit_id,
     get_leader_unit_ip,
     get_secret_by_label,
     http_request,
+    is_each_unit_restarted,
     run_action,
     set_watermark,
 )
@@ -31,13 +34,11 @@ from ..helpers_deployments import wait_until
 from ..plugins.helpers import (
     create_index_and_bulk_insert,
     generate_bulk_training_data,
-    get_application_unit_ids_start_time,
-    is_each_unit_restarted,
     is_knn_training_complete,
     run_knn_training,
 )
 from ..relations.helpers import get_unit_relation_data
-from ..tls.test_tls import TLS_CERTIFICATES_APP_NAME
+from ..tls.test_tls import TLS_CERTIFICATES_APP_NAME, TLS_STABLE_CHANNEL
 
 logger = logging.getLogger(__name__)
 
@@ -53,16 +54,7 @@ ALL_GROUPS = {
         deploy_type,
         id=deploy_type,
         marks=[
-            pytest.mark.group(deploy_type),
-            pytest.mark.runner(
-                [
-                    "self-hosted",
-                    "linux",
-                    "X64",
-                    "jammy",
-                    "xlarge" if deploy_type == "large" else "large",
-                ]
-            ),
+            pytest.mark.group(id=deploy_type),
         ],
     )
     for deploy_type in ["large_deployment", "small_deployment"]
@@ -73,16 +65,42 @@ SMALL_DEPLOYMENTS = [ALL_GROUPS["small_deployment"]]
 LARGE_DEPLOYMENTS = [ALL_GROUPS["large_deployment"]]
 
 
+async def assert_knn_config_updated(
+    ops_test: OpsTest, knn_enabled: bool, check_api: bool = True
+) -> None:
+    """Check if the KNN plugin is enabled or disabled."""
+    leader_unit_ip = await get_leader_unit_ip(ops_test, app=APP_NAME)
+    cmd = (
+        f"juju ssh -m {ops_test.model.name} opensearch/0 -- "
+        "sudo grep -r 'knn.plugin.enabled' "
+        "/var/snap/opensearch/current/etc/opensearch/opensearch.yml"
+    ).split()
+    assert (knn_enabled and "true" in subprocess.check_output(cmd).decode()) or (
+        not knn_enabled and "false" in subprocess.check_output(cmd).decode()
+    )
+    if not check_api:
+        # We're finished
+        return
+
+    endpoint = f"https://{leader_unit_ip}:9200/_cluster/settings?flat_settings=true"
+    settings = await http_request(ops_test, "GET", endpoint, app=APP_NAME, json_resp=True)
+    assert settings.get("persistent").get("knn.plugin.enabled") == str(knn_enabled).lower()
+
+
 async def _set_config(ops_test: OpsTest, deploy_type: str, conf: dict[str, str]) -> None:
     if deploy_type == "small_deployment":
         await ops_test.model.applications[APP_NAME].set_config(conf)
         return
-    await ops_test.model.applications[MAIN_ORCHESTRATOR_NAME].set_config(conf)
-    await ops_test.model.applications[FAILOVER_ORCHESTRATOR_NAME].set_config(conf)
-    await ops_test.model.applications[APP_NAME].set_config(conf)
+    await ops_test.model.applications[MAIN_ORCHESTRATOR_NAME].set_config(conf | CONFIG_OPTS)
+    await ops_test.model.applications[FAILOVER_ORCHESTRATOR_NAME].set_config(conf | CONFIG_OPTS)
+    await ops_test.model.applications[APP_NAME].set_config(conf | CONFIG_OPTS)
 
 
-async def _wait_for_units(ops_test: OpsTest, deployment_type: str) -> None:
+async def _wait_for_units(
+    ops_test: OpsTest,
+    deployment_type: str,
+    wait_for_cos: bool = False,
+) -> None:
     """Wait for all units to be active.
 
     This wait will behavior accordingly to small/large.
@@ -93,10 +111,18 @@ async def _wait_for_units(ops_test: OpsTest, deployment_type: str) -> None:
             apps=[APP_NAME],
             apps_statuses=["active"],
             units_statuses=["active"],
-            wait_for_exact_units={APP_NAME: 3},
             timeout=1800,
+            wait_for_exact_units={APP_NAME: 3},
             idle_period=IDLE_PERIOD,
         )
+        if wait_for_cos:
+            await wait_until(
+                ops_test,
+                apps=[COS_APP_NAME],
+                units_statuses=["blocked"],
+                timeout=1800,
+                idle_period=IDLE_PERIOD,
+            )
         return
     await wait_until(
         ops_test,
@@ -106,28 +132,36 @@ async def _wait_for_units(ops_test: OpsTest, deployment_type: str) -> None:
             FAILOVER_ORCHESTRATOR_NAME,
             APP_NAME,
         ],
-        apps_statuses=["active"],
-        units_statuses=["active"],
         wait_for_exact_units={
             TLS_CERTIFICATES_APP_NAME: 1,
             MAIN_ORCHESTRATOR_NAME: 1,
             FAILOVER_ORCHESTRATOR_NAME: 2,
             APP_NAME: 1,
         },
-        timeout=2400,
+        apps_statuses=["active"],
+        units_statuses=["active"],
+        timeout=1800,
         idle_period=IDLE_PERIOD,
     )
+    if wait_for_cos:
+        await wait_until(
+            ops_test,
+            apps=[COS_APP_NAME],
+            units_statuses=["blocked"],
+            timeout=1800,
+            idle_period=IDLE_PERIOD,
+        )
 
 
 @pytest.mark.parametrize("deploy_type", SMALL_DEPLOYMENTS)
 @pytest.mark.abort_on_fail
 @pytest.mark.skip_if_deployed
-async def test_build_and_deploy_small_deployment(ops_test: OpsTest, deploy_type: str) -> None:
+async def test_build_and_deploy_small_deployment(
+    ops_test: OpsTest, charm, series, deploy_type: str
+) -> None:
     """Build and deploy an OpenSearch cluster."""
     if await app_name(ops_test):
         return
-
-    my_charm = await ops_test.build_charm(".")
 
     model_conf = MODEL_CONFIG.copy()
     # Make it more regular as COS relation-broken really happens on the
@@ -141,15 +175,54 @@ async def test_build_and_deploy_small_deployment(ops_test: OpsTest, deploy_type:
     config = {"ca-common-name": "CN_CA"}
     await asyncio.gather(
         ops_test.model.deploy(
-            my_charm, num_units=3, series=SERIES, config={"plugin_opensearch_knn": True}
+            charm,
+            num_units=3,
+            series=series,
+            config={"plugin_opensearch_knn": False} | CONFIG_OPTS,
         ),
-        ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="latest/stable", config=config),
+        ops_test.model.deploy(
+            TLS_CERTIFICATES_APP_NAME, channel=TLS_STABLE_CHANNEL, config=config
+        ),
     )
+
+    await wait_until(
+        ops_test,
+        apps=[APP_NAME],
+        units_statuses=["blocked"],
+        wait_for_exact_units={APP_NAME: 3},
+        timeout=3400,
+        idle_period=IDLE_PERIOD,
+    )
+    assert len(ops_test.model.applications[APP_NAME].units) == 3
+
+
+@pytest.mark.parametrize("deploy_type", SMALL_DEPLOYMENTS)
+@pytest.mark.abort_on_fail
+async def test_config_switch_before_cluster_ready(ops_test: OpsTest, deploy_type) -> None:
+    """Configuration change before cluster is ready.
+
+    We hold the cluster without starting its unit services by not relating to tls-operator.
+    """
+    await ops_test.model.applications[APP_NAME].set_config({"plugin_opensearch_knn": "true"})
+    await wait_until(
+        ops_test,
+        apps=[APP_NAME],
+        units_statuses=["blocked"],
+        wait_for_exact_units={APP_NAME: 3},
+        timeout=3400,
+        idle_period=IDLE_PERIOD,
+    )
+    # disabled as plugins can currently only be activated after Opensearch has started
+    # see https://github.com/canonical/opensearch-operator/pull/633
+    # await assert_knn_config_updated(ops_test, True, check_api=False)
 
     # Relate it to OpenSearch to set up TLS.
     await ops_test.model.integrate(APP_NAME, TLS_CERTIFICATES_APP_NAME)
     await _wait_for_units(ops_test, deploy_type)
     assert len(ops_test.model.applications[APP_NAME].units) == 3
+
+    # to be removed here once enabling plugins before startup is possible again
+    await assert_knn_config_updated(ops_test, True, check_api=False)
 
 
 @pytest.mark.parametrize("deploy_type", SMALL_DEPLOYMENTS)
@@ -170,21 +243,25 @@ async def test_prometheus_exporter_enabled_by_default(ops_test, deploy_type: str
 
 @pytest.mark.parametrize("deploy_type", SMALL_DEPLOYMENTS)
 @pytest.mark.abort_on_fail
-async def test_small_deployments_prometheus_exporter_cos_relation(ops_test, deploy_type: str):
-    await ops_test.model.deploy(COS_APP_NAME, channel="edge"),
+async def test_small_deployments_prometheus_exporter_cos_relation(
+    ops_test, series, deploy_type: str
+):
+    await ops_test.model.deploy(COS_APP_NAME, channel="edge", series=series),
     await ops_test.model.integrate(APP_NAME, COS_APP_NAME)
-    await _wait_for_units(ops_test, deploy_type)
+    await _wait_for_units(ops_test, deploy_type, wait_for_cos=True)
 
     # Check that the correct settings were successfully communicated to grafana-agent
     cos_leader_id = await get_leader_unit_id(ops_test, COS_APP_NAME)
     cos_leader_name = f"{COS_APP_NAME}/{cos_leader_id}"
     leader_id = await get_leader_unit_id(ops_test, APP_NAME)
     leader_name = f"{APP_NAME}/{leader_id}"
-    relation_data_raw = await get_unit_relation_data(
+    relation_data = await get_unit_relation_data(
         ops_test, cos_leader_name, leader_name, COS_RELATION_NAME, "config"
     )
-    relation_data = json.loads(relation_data_raw)["metrics_scrape_jobs"][0]
-    secret = await get_secret_by_label(ops_test, "wazuh-indexer:app:monitor-password")
+    if not isinstance(relation_data, dict):
+        relation_data = json.loads(relation_data)
+    relation_data = relation_data["metrics_scrape_jobs"][0]
+    secret = await get_secret_by_label(ops_test, "opensearch:app:monitor-password")
 
     assert relation_data["basic_auth"]["username"] == "monitor"
     assert relation_data["basic_auth"]["password"] == secret["monitor-password"]
@@ -197,13 +274,13 @@ async def test_small_deployments_prometheus_exporter_cos_relation(ops_test, depl
 @pytest.mark.parametrize("deploy_type", LARGE_DEPLOYMENTS)
 @pytest.mark.abort_on_fail
 @pytest.mark.skip_if_deployed
-async def test_large_deployment_build_and_deploy(ops_test: OpsTest, deploy_type: str) -> None:
+async def test_large_deployment_build_and_deploy(
+    ops_test: OpsTest, charm, series, deploy_type: str
+) -> None:
     """Build and deploy a large deployment for OpenSearch."""
     await ops_test.model.set_config(MODEL_CONFIG)
     # Deploy TLS Certificates operator.
     tls_config = {"ca-common-name": "CN_CA"}
-
-    my_charm = await ops_test.build_charm(".")
 
     main_orchestrator_conf = {
         "cluster_name": "plugins-test",
@@ -219,24 +296,28 @@ async def test_large_deployment_build_and_deploy(ops_test: OpsTest, deploy_type:
 
     await asyncio.gather(
         ops_test.model.deploy(
-            TLS_CERTIFICATES_APP_NAME, channel="latest/stable", config=tls_config
+            TLS_CERTIFICATES_APP_NAME, channel=TLS_STABLE_CHANNEL, config=tls_config
         ),
         ops_test.model.deploy(
-            my_charm,
+            charm,
             application_name=MAIN_ORCHESTRATOR_NAME,
             num_units=1,
-            series=SERIES,
-            config=main_orchestrator_conf,
+            series=series,
+            config=main_orchestrator_conf | CONFIG_OPTS,
         ),
         ops_test.model.deploy(
-            my_charm,
+            charm,
             application_name=FAILOVER_ORCHESTRATOR_NAME,
             num_units=2,
-            series=SERIES,
-            config=failover_orchestrator_conf,
+            series=series,
+            config=failover_orchestrator_conf | CONFIG_OPTS,
         ),
         ops_test.model.deploy(
-            my_charm, application_name=APP_NAME, num_units=1, series=SERIES, config=data_hot_conf
+            charm,
+            application_name=APP_NAME,
+            num_units=1,
+            series=series,
+            config=data_hot_conf | CONFIG_OPTS,
         ),
     )
 
@@ -258,24 +339,28 @@ async def test_large_deployment_build_and_deploy(ops_test: OpsTest, deploy_type:
 
 @pytest.mark.parametrize("deploy_type", LARGE_DEPLOYMENTS)
 @pytest.mark.abort_on_fail
-async def test_large_deployment_prometheus_exporter_cos_relation(ops_test, deploy_type: str):
+async def test_large_deployment_prometheus_exporter_cos_relation(
+    ops_test, series, deploy_type: str
+):
     # Check that the correct settings were successfully communicated to grafana-agent
-    await ops_test.model.deploy(COS_APP_NAME, channel="edge"),
+    await ops_test.model.deploy(COS_APP_NAME, channel="edge", series=series),
     await ops_test.model.integrate(FAILOVER_ORCHESTRATOR_NAME, COS_APP_NAME)
     await ops_test.model.integrate(MAIN_ORCHESTRATOR_NAME, COS_APP_NAME)
     await ops_test.model.integrate(APP_NAME, COS_APP_NAME)
 
-    await _wait_for_units(ops_test, deploy_type)
+    await _wait_for_units(ops_test, deploy_type, wait_for_cos=True)
 
     leader_id = await get_leader_unit_id(ops_test, APP_NAME)
     leader_name = f"{APP_NAME}/{leader_id}"
 
     cos_leader_id = await get_leader_unit_id(ops_test, COS_APP_NAME)
-    relation_data_raw = await get_unit_relation_data(
+    relation_data = await get_unit_relation_data(
         ops_test, f"{COS_APP_NAME}/{cos_leader_id}", leader_name, COS_RELATION_NAME, "config"
     )
-    relation_data = json.loads(relation_data_raw)["metrics_scrape_jobs"][0]
-    secret = await get_secret_by_label(ops_test, "wazuh-indexer:app:monitor-password")
+    if not isinstance(relation_data, dict):
+        relation_data = json.loads(relation_data)
+    relation_data = relation_data["metrics_scrape_jobs"][0]
+    secret = await get_secret_by_label(ops_test, "opensearch:app:monitor-password")
 
     assert relation_data["basic_auth"]["username"] == "monitor"
     assert relation_data["basic_auth"]["password"] == secret["monitor-password"]
@@ -317,7 +402,7 @@ async def test_prometheus_monitor_user_password_change(ops_test, deploy_type: st
     result1 = await run_action(
         ops_test, leader_id, "set-password", {"username": "monitor"}, app=app
     )
-    await _wait_for_units(ops_test, deploy_type)
+    await _wait_for_units(ops_test, deploy_type, wait_for_cos=True)
 
     new_password = result1.response.get("monitor-password")
     # Now, we compare the change in the action above with the opensearch's nodes.
@@ -336,10 +421,12 @@ async def test_prometheus_monitor_user_password_change(ops_test, deploy_type: st
 
     # We're not sure which grafana-agent is sitting with APP_NAME in large deployments
     cos_leader_id = await get_leader_unit_id(ops_test, COS_APP_NAME)
-    relation_data_raw = await get_unit_relation_data(
+    relation_data = await get_unit_relation_data(
         ops_test, f"{COS_APP_NAME}/{cos_leader_id}", leader_name, COS_RELATION_NAME, "config"
     )
-    relation_data = json.loads(relation_data_raw)["metrics_scrape_jobs"][0]["basic_auth"]
+    if not isinstance(relation_data, dict):
+        relation_data = json.loads(relation_data)
+    relation_data = relation_data["metrics_scrape_jobs"][0]["basic_auth"]
 
     assert relation_data["username"] == "monitor"
     assert relation_data["password"] == new_password
@@ -527,11 +614,12 @@ async def test_knn_training_search(ops_test: OpsTest, deploy_type: str) -> None:
         await _wait_for_units(ops_test, deploy_type)
 
         # Now use it to compare with the restart
-        assert await is_each_unit_restarted(ops_test, APP_NAME, ts)
+        assert not await is_each_unit_restarted(ops_test, APP_NAME, ts)
+        await assert_knn_config_updated(ops_test, knn_enabled, check_api=True)
         assert await check_cluster_formation_successful(
             ops_test, leader_unit_ip, get_application_unit_names(ops_test, app=APP_NAME)
         ), "Restart happened but cluster did not start correctly"
-        logger.info("Restart finished and was successful")
+        logger.info("Config updated and was successful")
 
         query = {
             "size": 2,

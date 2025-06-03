@@ -65,10 +65,9 @@ PClusterWrongNodesCountForQuorum = (
 )
 PluginConfigError = "Unexpected error during plugin configuration, check the logs"
 BackupSetupFailed = "Backup setup failed, check logs for details"
-S3RelMissing = "Backup failover cluster missing S3 relation."
-S3RelShouldNotExist = "This unit should not be related to S3"
-S3RelDataIncomplete = "S3 relation data missing or incomplete."
-S3RelUneligible = "Only orchestrator clusters should relate to S3."
+BackupRelShouldNotExist = "This unit should not be related to backup relation"
+BackupRelDataIncomplete = "Backup relation data missing or incomplete."
+BackupRelUneligible = "Only orchestrator clusters should relate to backup relation."
 
 # Wait status
 RequestUnitServiceOps = "Requesting lock on operation: {}"
@@ -85,10 +84,10 @@ HorizontalScaleUpSuggest = "Horizontal scale up advised: {} shards unassigned."
 WaitingForOtherUnitServiceOps = "Waiting for other units to complete the ops on their service."
 NewIndexRequested = "new index {index} requested"
 RestoreInProgress = "Restore in progress..."
-PluginConfigCheck = "Plugin configuration check."
 BackupSetupStart = "Backup setup started."
 BackupConfigureStart = "Configuring backup service..."
 BackupInDisabling = "Disabling backup service..."
+PluginConfigCheck = "Plugin configuration check."
 
 # Relation Interfaces
 ClientRelationName = "opensearch-client"
@@ -118,3 +117,12 @@ OPENSEARCH_SNAP_REVISION = 5  # Keep in sync with `workload_version` file
 
 # User-face Backup ID format
 OPENSEARCH_BACKUP_ID_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+
+S3_REPO_BASE_PATH = "/"
+S3_RELATION = "s3-credentials"
+AZURE_REPO_BASE_PATH = "/"
+AZURE_RELATION = "azure-credentials"
+
+OAUTH_RELATION = "oauth"
+
+PERFORMANCE_PROFILE = "profile"

@@ -2,13 +2,14 @@
 # See LICENSE file for licensing details.
 
 """Class for Setting configuration in opensearch config files."""
+
 import logging
 from collections import namedtuple
 from typing import Any, Dict, List, Optional
 
 from charms.opensearch.v0.constants_tls import CertType
 from charms.opensearch.v0.helper_security import normalized_tls_subject
-from charms.opensearch.v0.models import App
+from charms.opensearch.v0.models import App, OpenSearchPerfProfile
 from charms.opensearch.v0.opensearch_distro import OpenSearchDistribution
 
 # The unique Charmhub library identifier, never change it
@@ -69,6 +70,63 @@ class OpenSearchConfig:
             "-Djdk.tls.client.protocols=TLSv1.2",
         )
 
+    def add_oidc_auth(self, openid_connect_url: str):
+        """Adds OIDC auth scheme on the security config."""
+        oidc_config = {
+            "http_enabled": True,
+            "transport_enabled": True,
+            # NOTE: Order value needs to be lower than basic_internal_auth_domain section, which
+            # is set to 4 by default. Only available number is 1, if we want a different number,
+            # all other numbers need to be reshuffled.
+            "order": 1,
+            "http_authenticator": {
+                "type": "openid",
+                "challenge": False,
+                "config": {
+                    "subject_key": "sub",
+                    "openid_connect_url": openid_connect_url,
+                    "openid_connect_idp": {
+                        "enable_ssl": True,
+                        "verify_hostnames": False,
+                        # NOTE: this assumes Hydra and Opensearch are using the same certificates
+                        # relation.
+                        "pemtrustedcas_filepath": f"{self._opensearch.paths.certs}/chain.pem",
+                    },
+                },
+            },
+            "authentication_backend": {"type": "noop"},
+        }
+        self._opensearch.config.put(
+            self.SECURITY_CONFIG_YML,
+            "config/dynamic/authc/openid_auth_domain",
+            oidc_config,
+        )
+
+    def remove_oidc_auth(self):
+        """Removes the OIDC auth scheme from security config."""
+        self._opensearch.config.delete(
+            self.SECURITY_CONFIG_YML, "config/dynamic/authc/openid_auth_domain"
+        )
+
+    def apply_performance_profile(self, profile: OpenSearchPerfProfile):
+        """Apply the performance profile to the opensearch config."""
+        self._opensearch.config.replace(
+            self.JVM_OPTIONS,
+            "-Xms[0-9]+[kmgKMG]",
+            f"-Xms{str(profile.heap_size_in_kb)}k",
+            regex=True,
+        )
+
+        self._opensearch.config.replace(
+            self.JVM_OPTIONS,
+            "-Xmx[0-9]+[kmgKMG]",
+            f"-Xmx{str(profile.heap_size_in_kb)}k",
+            regex=True,
+        )
+
+        for key, val in profile.opensearch_yml.items():
+            self._opensearch.config.put(self.CONFIG_YML, key, val)
+
     def set_admin_tls_conf(self, secrets: Dict[str, any]):
         """Configures the admin certificate."""
         self._opensearch.config.put(
@@ -99,8 +157,16 @@ class OpenSearchConfig:
             f"plugins.security.ssl.{target_conf_layer}.keystore_alias",
             cert_type.val,
         )
+        self._opensearch.config.put(
+            self.CONFIG_YML,
+            f"plugins.security.ssl.{target_conf_layer}.keystore_keypassword",
+            keystore_pwd,
+        )
 
-        for store_type, pwd in [("keystore", keystore_pwd), ("truststore", truststore_pwd)]:
+        for store_type, pwd in [
+            ("keystore", keystore_pwd),
+            ("truststore", truststore_pwd),
+        ]:
             self._opensearch.config.put(
                 self.CONFIG_YML,
                 f"plugins.security.ssl.{target_conf_layer}.{store_type}_password",
@@ -151,6 +217,9 @@ class OpenSearchConfig:
             self._opensearch.config.put(
                 self.CONFIG_YML, "network.publish_host", self._opensearch.host
             )
+        self._opensearch.config.put(
+            self.CONFIG_YML, "http.publish_host", self._opensearch.public_address
+        )
 
         self._opensearch.config.put(
             self.CONFIG_YML, "node.roles", roles, inline_array=len(roles) == 0
@@ -182,7 +251,9 @@ class OpenSearchConfig:
         self._opensearch.config.put(self.CONFIG_YML, "plugins.security.disabled", False)
         self._opensearch.config.put(self.CONFIG_YML, "plugins.security.ssl.http.enabled", True)
         self._opensearch.config.put(
-            self.CONFIG_YML, "plugins.security.ssl.transport.enforce_hostname_verification", True
+            self.CONFIG_YML,
+            "plugins.security.ssl.transport.enforce_hostname_verification",
+            True,
         )
 
         # security plugin rest API access
@@ -239,15 +310,13 @@ class OpenSearchConfig:
                 result[key] = loaded_configs[key]
         return result
 
-    def add_plugin(self, plugin_config: Dict[str, str]) -> None:
-        """Adds plugin configuration to opensearch.yml."""
+    def update_plugin(self, plugin_config: Dict[str, Any]) -> None:
+        """Adds or removes plugin configuration to opensearch.yml."""
         for key, val in plugin_config.items():
-            self._opensearch.config.put(self.CONFIG_YML, key, val)
-
-    def delete_plugin(self, plugin_config: List[str]) -> None:
-        """Removes plugin configuration from opensearch.yml."""
-        for key in plugin_config:
-            self._opensearch.config.delete(self.CONFIG_YML, key)
+            if not val:
+                self._opensearch.config.delete(self.CONFIG_YML, key)
+            else:
+                self._opensearch.config.put(self.CONFIG_YML, key, val)
 
     def update_host_if_needed(self) -> bool:
         """Update the opensearch config with the current network hosts, after having started.
@@ -268,6 +337,11 @@ class OpenSearchConfig:
                 "network.publish_host",
                 node.get("network.publish_host"),
                 self._opensearch.host,
+            ),
+            NetworkHost(
+                "http.publish_host",
+                node.get("http.publish_host"),
+                self._opensearch.public_address,
             ),
         ]:
             if not host.old:

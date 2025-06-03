@@ -6,8 +6,9 @@ import itertools
 import re
 import socket
 import unittest
+import uuid
 from unittest import mock
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, Mock, call, patch
 
 import responses
 from charms.opensearch.v0.constants_charm import (
@@ -33,7 +34,7 @@ from ops.testing import Harness
 from parameterized import parameterized
 
 from charm import OpenSearchOperatorCharm
-from tests.helpers import create_utf8_encoded_private_key, patch_network_get
+from tests.helpers import create_utf8_encoded_private_key
 from tests.unit.helpers import (
     mock_response_health_green,
     mock_response_lock_not_requested,
@@ -49,7 +50,6 @@ def single_space(input: str) -> str:
     return " ".join(input.split())
 
 
-@patch_network_get("1.1.1.1")
 class TestOpenSearchTLS(unittest.TestCase):
     BASE_LIB_PATH = "charms.opensearch.v0"
     BASE_CHARM_CLASS = f"{BASE_LIB_PATH}.opensearch_base_charm.OpenSearchBaseCharm"
@@ -59,7 +59,9 @@ class TestOpenSearchTLS(unittest.TestCase):
 
     deployment_descriptions = {
         "ok": DeploymentDescription(
-            config=PeerClusterConfig(cluster_name="", init_hold=False, roles=[]),
+            config=PeerClusterConfig(
+                cluster_name="", init_hold=False, roles=[], profile="production"
+            ),
             start=StartMode.WITH_GENERATED_ROLES,
             pending_directives=[],
             typ=DeploymentType.MAIN_ORCHESTRATOR,
@@ -67,7 +69,9 @@ class TestOpenSearchTLS(unittest.TestCase):
             state=DeploymentState(value=State.ACTIVE),
         ),
         "ko": DeploymentDescription(
-            config=PeerClusterConfig(cluster_name="logs", init_hold=True, roles=["ml"]),
+            config=PeerClusterConfig(
+                cluster_name="logs", init_hold=True, roles=["ml"], profile="production"
+            ),
             start=StartMode.WITH_PROVIDED_ROLES,
             pending_directives=[Directive.WAIT_FOR_PEER_CLUSTER_RELATION],
             typ=DeploymentType.OTHER,
@@ -79,11 +83,13 @@ class TestOpenSearchTLS(unittest.TestCase):
     @patch("charm.OpenSearchOperatorCharm._put_or_update_internal_user_leader")
     def setUp(self, _) -> None:
         self.harness = Harness(OpenSearchOperatorCharm)
+        self.harness.add_network("1.1.1.1")
         self.addCleanup(self.harness.cleanup)
         self.rel_id = self.harness.add_network("1.1.1.1", endpoint=PeerRelationName)
         self.harness.add_network("1.1.1.1", endpoint=TLS_RELATION)
         self.harness.begin()
         self.charm = self.harness.charm
+
         self.rel_id = self.harness.add_relation(PeerRelationName, self.charm.app.name)
         self.harness.add_relation_unit(self.rel_id, f"{self.charm.app.name}/0")
         self.harness.add_relation(TLS_RELATION, self.charm.app.name)
@@ -161,7 +167,9 @@ class TestOpenSearchTLS(unittest.TestCase):
     def test_on_relation_created_admin(self, _, __, _request_certificate, deployment_desc):
         """Test on certificate relation created event."""
         deployment_desc.return_value = DeploymentDescription(
-            config=PeerClusterConfig(cluster_name="", init_hold=False, roles=[]),
+            config=PeerClusterConfig(
+                cluster_name="", init_hold=False, roles=[], profile="production"
+            ),
             start=StartMode.WITH_GENERATED_ROLES,
             pending_directives=[],
             typ=DeploymentType.MAIN_ORCHESTRATOR,
@@ -192,7 +200,9 @@ class TestOpenSearchTLS(unittest.TestCase):
     ):
         """Test on certificate relation created event."""
         deployment_desc.return_value = DeploymentDescription(
-            config=PeerClusterConfig(cluster_name="", init_hold=False, roles=[]),
+            config=PeerClusterConfig(
+                cluster_name="", init_hold=False, roles=[], profile="production"
+            ),
             start=StartMode.WITH_GENERATED_ROLES,
             pending_directives=[],
             typ=DeploymentType.OTHER,
@@ -227,7 +237,9 @@ class TestOpenSearchTLS(unittest.TestCase):
     def test_on_relation_created_non_admin(self, _, __, _request_certificate, deployment_desc):
         """Test on certificate relation created event."""
         deployment_desc.return_value = DeploymentDescription(
-            config=PeerClusterConfig(cluster_name="", init_hold=False, roles=[]),
+            config=PeerClusterConfig(
+                cluster_name="", init_hold=False, roles=[], profile="production"
+            ),
             start=StartMode.WITH_GENERATED_ROLES,
             pending_directives=[],
             typ=DeploymentType.MAIN_ORCHESTRATOR,
@@ -352,7 +364,9 @@ class TestOpenSearchTLS(unittest.TestCase):
         )
 
         deployment_desc.return_value = DeploymentDescription(
-            config=PeerClusterConfig(cluster_name="", init_hold=False, roles=[]),
+            config=PeerClusterConfig(
+                cluster_name="", init_hold=False, roles=[], profile="production"
+            ),
             start=StartMode.WITH_GENERATED_ROLES,
             pending_directives=[],
             typ=DeploymentType.MAIN_ORCHESTRATOR,
@@ -386,7 +400,9 @@ class TestOpenSearchTLS(unittest.TestCase):
         )
 
         deployment_desc.return_value = DeploymentDescription(
-            config=PeerClusterConfig(cluster_name="", init_hold=False, roles=[]),
+            config=PeerClusterConfig(
+                cluster_name="", init_hold=False, roles=[], profile="production"
+            ),
             start=StartMode.WITH_GENERATED_ROLES,
             pending_directives=[],
             typ=DeploymentType.MAIN_ORCHESTRATOR,
@@ -429,7 +445,9 @@ class TestOpenSearchTLS(unittest.TestCase):
         self, _, __, _create_keystore_pwd_if_not_exists, deployment_desc
     ):
         deployment_desc.return_value = DeploymentDescription(
-            config=PeerClusterConfig(cluster_name="", init_hold=False, roles=[]),
+            config=PeerClusterConfig(
+                cluster_name="", init_hold=False, roles=[], profile="production"
+            ),
             start=StartMode.WITH_GENERATED_ROLES,
             pending_directives=[],
             typ=DeploymentType.OTHER,
@@ -455,19 +473,21 @@ class TestOpenSearchTLS(unittest.TestCase):
             (DeploymentType.FAILOVER_ORCHESTRATOR),
         ]
     )
+    @patch("charms.opensearch.v0.opensearch_tls.tempfile.NamedTemporaryFile")
     @patch("charms.opensearch.v0.opensearch_tls.run_cmd")
     @patch(f"{PEER_CLUSTERS_MANAGER}.deployment_desc")
     # Mocks to avoid I/O
-    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS._read_stored_ca")
+    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS.read_stored_ca")
     @patch("builtins.open", side_effect=unittest.mock.mock_open())
     def test_on_certificate_available_leader_app_cert_full_workflow(
         self,
         # NOTE: Syntax: parametrized parameter comes first
         deployment_type,
         _,
-        _read_stored_ca,
+        read_stored_ca,
         deployment_desc,
         run_cmd,
+        named_temporary_file,
     ):
         """New certificate received.
 
@@ -504,11 +524,13 @@ class TestOpenSearchTLS(unittest.TestCase):
         )
 
         # There was no change of the CA (certificate), the event matches the one on disk
-        _read_stored_ca.return_value = ca
+        read_stored_ca.return_value = ca
 
         # Applies to ANY deployment type
         deployment_desc.return_value = DeploymentDescription(
-            config=PeerClusterConfig(cluster_name="", init_hold=False, roles=[]),
+            config=PeerClusterConfig(
+                cluster_name="", init_hold=False, roles=[], profile="production"
+            ),
             start=StartMode.WITH_GENERATED_ROLES,
             pending_directives=[],
             typ=deployment_type,
@@ -540,6 +562,10 @@ class TestOpenSearchTLS(unittest.TestCase):
             "sudo chmod +r /var/snap/wazuh-indexer/current/etc/wazuh-indexer/certificates/app-admin.p12"
             in run_cmd.call_args_list[1].args[0]
         )
+        assert (
+            "/var/snap/opensearch/current/etc/opensearch"
+            in named_temporary_file.call_args_list[0][1]["dir"]
+        )
 
         assert self.harness.model.app.status == original_status_app
         assert self.harness.model.unit.status == original_status_unit
@@ -567,10 +593,11 @@ class TestOpenSearchTLS(unittest.TestCase):
             [CertType.UNIT_HTTP.val, CertType.UNIT_TRANSPORT.val],
         )
     )
+    @patch("charms.opensearch.v0.opensearch_tls.tempfile.NamedTemporaryFile")
     @patch("charms.opensearch.v0.opensearch_tls.run_cmd")
     @patch(f"{PEER_CLUSTERS_MANAGER}.deployment_desc")
     # Mocks to avoid I/O
-    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS._read_stored_ca")
+    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS.read_stored_ca")
     @patch("builtins.open", side_effect=unittest.mock.mock_open())
     def test_on_certificate_available_any_node_unit_cert_full_workflow(
         self,
@@ -579,9 +606,10 @@ class TestOpenSearchTLS(unittest.TestCase):
         leader,
         cert_type,
         _,
-        _read_stored_ca,
+        read_stored_ca,
         deployment_desc,
         run_cmd,
+        named_temporary_file,
     ):
         """New *unit* certificate received.
 
@@ -646,11 +674,13 @@ class TestOpenSearchTLS(unittest.TestCase):
         )
 
         # There was no change of the CA (certificate), the event matches the one on disk
-        _read_stored_ca.return_value = ca
+        read_stored_ca.return_value = ca
 
         # Applies to ANY deployment type
         deployment_desc.return_value = DeploymentDescription(
-            config=PeerClusterConfig(cluster_name="", init_hold=False, roles=[]),
+            config=PeerClusterConfig(
+                cluster_name="", init_hold=False, roles=[], profile="production"
+            ),
             start=StartMode.WITH_GENERATED_ROLES,
             pending_directives=[],
             typ=deployment_type,
@@ -680,6 +710,10 @@ class TestOpenSearchTLS(unittest.TestCase):
             f"sudo chmod +r /var/snap/wazuh-indexer/current/etc/wazuh-indexer/certificates/{cert_type}.p12"
             in run_cmd.call_args_list[1].args[0]
         )
+        assert (
+            "/var/snap/opensearch/current/etc/opensearch"
+            in named_temporary_file.call_args_list[0][1]["dir"]
+        )
 
         assert self.harness.model.unit.status == original_status_unit
 
@@ -706,8 +740,10 @@ class TestOpenSearchTLS(unittest.TestCase):
             (DeploymentType.FAILOVER_ORCHESTRATOR),
         ]
     )
+    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS._add_ca_to_request_bundle")
+    @patch("charms.opensearch.v0.opensearch_tls.tempfile.NamedTemporaryFile")
     @patch("charms.opensearch.v0.opensearch_tls.run_cmd")
-    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS._read_stored_ca")
+    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS.read_stored_ca")
     @patch(f"{PEER_CLUSTERS_MANAGER}.deployment_desc")
     # Mocks to avoid I/O
     @patch("builtins.open", side_effect=unittest.mock.mock_open())
@@ -717,8 +753,10 @@ class TestOpenSearchTLS(unittest.TestCase):
         deployment_type,
         _,
         deployment_desc,
-        _read_stored_ca,
+        read_stored_ca,
         run_cmd,
+        named_temporary_file,
+        mock_add_ca_to_request_bundle,
     ):
         """Test CA rotation 1st stage.
 
@@ -770,11 +808,13 @@ class TestOpenSearchTLS(unittest.TestCase):
         )
 
         # The CA stored in the keystore is still the old one
-        _read_stored_ca.return_value = "old_ca"
+        read_stored_ca.return_value = "old_ca"
 
         # Applies to ANY deployment type
         deployment_desc.return_value = DeploymentDescription(
-            config=PeerClusterConfig(cluster_name="", init_hold=False, roles=[]),
+            config=PeerClusterConfig(
+                cluster_name="", init_hold=False, roles=[], profile="production"
+            ),
             start=StartMode.WITH_GENERATED_ROLES,
             pending_directives=[],
             typ=deployment_type,
@@ -789,6 +829,8 @@ class TestOpenSearchTLS(unittest.TestCase):
 
         self.charm.tls._on_certificate_available(event_mock)
 
+        mock_add_ca_to_request_bundle.assert_called_once()
+
         # Old CA cert is saved with corresponding alias, new new CA cert added to keystore
         assert run_cmd.call_count == 3
         assert re.search(
@@ -799,6 +841,10 @@ class TestOpenSearchTLS(unittest.TestCase):
         assert (
             "chmod +r /var/snap/wazuh-indexer/current/etc/wazuh-indexer/certificates/ca.p12"
             in run_cmd.call_args_list[2].args[0]
+        )
+        assert (
+            "/var/snap/opensearch/current/etc/opensearch"
+            in named_temporary_file.call_args_list[0][1]["dir"]
         )
         # NOTE: The new cert and chain are NOT saved into the keystore (disk)
 
@@ -831,14 +877,14 @@ class TestOpenSearchTLS(unittest.TestCase):
         ]
     )
     @patch("charms.opensearch.v0.opensearch_tls.run_cmd")
-    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS._read_stored_ca")
+    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS.read_stored_ca")
     @patch(f"{PEER_CLUSTERS_MANAGER}.deployment_desc")
     def test_on_certificate_available_ca_rotation_first_stage_any_cluster_non_leader(
         # NOTE: Syntax: parametrized parameter comes first
         self,
         deployment_type,
         deployment_desc,
-        _read_stored_ca,
+        read_stored_ca,
         run_cmd,
     ):
         """'certificate-available' with an app cert and/or a CA cert.
@@ -866,11 +912,13 @@ class TestOpenSearchTLS(unittest.TestCase):
             certificate_signing_request=csr, chain=chain, certificate=cert, ca=ca
         )
 
-        _read_stored_ca.return_value = "stored_ca"
+        read_stored_ca.return_value = "stored_ca"
 
         # Applies to ANY deployment type
         deployment_desc.return_value = DeploymentDescription(
-            config=PeerClusterConfig(cluster_name="", init_hold=False, roles=[]),
+            config=PeerClusterConfig(
+                cluster_name="", init_hold=False, roles=[], profile="production"
+            ),
             start=StartMode.WITH_GENERATED_ROLES,
             pending_directives=[],
             typ=deployment_type,
@@ -915,7 +963,7 @@ class TestOpenSearchTLS(unittest.TestCase):
     @patch(
         "charms.tls_certificates_interface.v3.tls_certificates.TLSCertificatesRequiresV3.request_certificate_creation"
     )
-    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS._read_stored_ca")
+    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS.read_stored_ca")
     @patch(f"{PEER_CLUSTERS_MANAGER}.deployment_desc")
     # Necessary mocks to simulate a smotth startup
     @patch("machine_upgrade.Upgrade")
@@ -930,7 +978,7 @@ class TestOpenSearchTLS(unittest.TestCase):
         __,
         upgrade,
         deployment_desc,
-        _read_stored_ca,
+        read_stored_ca,
         create_cert,
         revoke_cert,
         renew_cert,
@@ -951,6 +999,7 @@ class TestOpenSearchTLS(unittest.TestCase):
          - any deployment types
          - LEADER ONLY
         """
+        generate_csr.return_value = uuid.uuid4().hex.encode()
         # Units had their certificates already
         old_csr = "old_csr"
         old_key = create_utf8_encoded_private_key()
@@ -1000,7 +1049,9 @@ class TestOpenSearchTLS(unittest.TestCase):
 
         # Applies to ANY deployment type
         deployment_desc.return_value = DeploymentDescription(
-            config=PeerClusterConfig(cluster_name="", init_hold=False, roles=[]),
+            config=PeerClusterConfig(
+                cluster_name="", init_hold=False, roles=[], profile="production"
+            ),
             start=StartMode.WITH_GENERATED_ROLES,
             pending_directives=[],
             typ=deployment_type,
@@ -1033,23 +1084,33 @@ class TestOpenSearchTLS(unittest.TestCase):
         assert new_app_admin_secret["key"] == old_key
         assert new_app_admin_secret["subject"] != old_subject
 
+        # 1 for admin cert, 2 for unit certs
         assert generate_csr.call_count == 3
-        assert revoke_cert.called_with(
-            private_key=bytes(new_app_admin_secret["csr"], encoding="utf-8")
-        )
-        assert revoke_cert.called_with(private_key=b"key-http")
-        assert revoke_cert.called_with(private_key=b"key-transport")
 
-        assert create_cert.call_count == 1
-        assert create_cert.called_with(certificate_signing_request=new_app_admin_secret["csr"])
-
+        # new unit certs
         assert revoke_cert.call_count == 2
-        assert revoke_cert.called_with(b"csr-http")
-        assert revoke_cert.called_with(b"csr-transport")
+        revoke_cert.assert_has_calls([call(b"csr-http"), call(b"csr-transport")])
 
         assert renew_cert.call_count == 2
-        assert renew_cert.called_with(old_certificate_signing_renew=b"csr-http")
-        assert renew_cert.called_with(old_certificate_signing_renew=b"csr-transport")
+        renew_cert.assert_has_calls(
+            [
+                call(
+                    old_certificate_signing_request=b"csr-http",
+                    new_certificate_signing_request=generate_csr(),
+                ),
+                call(
+                    old_certificate_signing_request=b"csr-transport",
+                    new_certificate_signing_request=generate_csr(),
+                ),
+            ]
+        )
+
+        # new admin cert
+        assert create_cert.call_count == 1
+        # we store the decoded csr in the secret but pass it as bytes to the function
+        create_cert.call_args.kwargs[
+            "certificate_signing_request"
+        ].decode() == new_app_admin_secret["csr"]
 
         assert self.harness.model.unit.status.message == TLSNotFullyConfigured
         assert self.harness.model.unit.status, MaintenanceStatus != original_status
@@ -1072,7 +1133,7 @@ class TestOpenSearchTLS(unittest.TestCase):
     )
     @patch(f"{PEER_CLUSTERS_MANAGER}.deployment_desc")
     # Mocks to avoid I/O
-    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS._read_stored_ca")
+    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS.read_stored_ca")
     # Necessary mocks to simulate a smooth startup
     @patch("machine_upgrade.Upgrade")
     @patch("socket.socket.connect")
@@ -1083,7 +1144,7 @@ class TestOpenSearchTLS(unittest.TestCase):
         deployment_type,
         _,
         upgrade,
-        _read_stored_ca,
+        read_stored_ca,
         deployment_desc,
         revoke_cert,
         renew_cert,
@@ -1102,6 +1163,7 @@ class TestOpenSearchTLS(unittest.TestCase):
          - any deployment types
          - any units
         """
+        generate_csr.return_value = uuid.uuid4().hex.encode()
         # Units had their certificates already
         csr = "old_csr"
         ca = "new_ca"
@@ -1149,7 +1211,9 @@ class TestOpenSearchTLS(unittest.TestCase):
 
         # Applies to ANY deployment type
         deployment_desc.return_value = DeploymentDescription(
-            config=PeerClusterConfig(cluster_name="", init_hold=False, roles=[]),
+            config=PeerClusterConfig(
+                cluster_name="", init_hold=False, roles=[], profile="production"
+            ),
             start=StartMode.WITH_GENERATED_ROLES,
             pending_directives=[],
             typ=deployment_type,
@@ -1181,12 +1245,23 @@ class TestOpenSearchTLS(unittest.TestCase):
         )
 
         assert revoke_cert.call_count == 2
-        assert revoke_cert.called_with(b"csr-http")
-        assert revoke_cert.called_with(b"csr-transport")
+        revoke_cert.assert_has_calls(
+            [call(csr_http_old.encode()), call(csr_transport_old.encode())]
+        )
 
         assert renew_cert.call_count == 2
-        assert renew_cert.called_with(old_certificate_signing_renew=b"csr-http")
-        assert renew_cert.called_with(old_certificate_signing_renew=b"csr-transport")
+        renew_cert.assert_has_calls(
+            [
+                call(
+                    old_certificate_signing_request=csr_http_old.encode(),
+                    new_certificate_signing_request=generate_csr(),
+                ),
+                call(
+                    old_certificate_signing_request=csr_transport_old.encode(),
+                    new_certificate_signing_request=generate_csr(),
+                ),
+            ]
+        )
 
         assert (
             self.secret_store.get_object(Scope.UNIT, CertType.UNIT_HTTP.val)["csr"] != csr_http_old
@@ -1208,19 +1283,21 @@ class TestOpenSearchTLS(unittest.TestCase):
             (DeploymentType.FAILOVER_ORCHESTRATOR),
         ]
     )
+    @patch("charms.opensearch.v0.opensearch_tls.tempfile.NamedTemporaryFile")
     @patch("charms.opensearch.v0.opensearch_tls.run_cmd")
     @patch(f"{PEER_CLUSTERS_MANAGER}.deployment_desc")
     # Mocks to avoid I/O
-    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS._read_stored_ca")
+    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS.read_stored_ca")
     @patch("builtins.open", side_effect=unittest.mock.mock_open())
     def test_on_certificate_available_ca_rotation_third_stage_leader_cert_app(
         self,
         # NOTE: Syntax: parametrized parameter comes first
         deployment_type,
         _,
-        _read_stored_ca,
+        read_stored_ca,
         deployment_desc,
         run_cmd,
+        named_temporary_file,
     ):
         """Test CA rotation 3rd stage -- *app* certificate.
 
@@ -1259,11 +1336,13 @@ class TestOpenSearchTLS(unittest.TestCase):
                 return "old_ca_cert"
             return ca
 
-        _read_stored_ca.side_effect = mock_stored_ca
+        read_stored_ca.side_effect = mock_stored_ca
 
         # Applies to ANY deployment type
         deployment_desc.return_value = DeploymentDescription(
-            config=PeerClusterConfig(cluster_name="", init_hold=False, roles=[]),
+            config=PeerClusterConfig(
+                cluster_name="", init_hold=False, roles=[], profile="production"
+            ),
             start=StartMode.WITH_GENERATED_ROLES,
             pending_directives=[],
             typ=deployment_type,
@@ -1307,6 +1386,10 @@ class TestOpenSearchTLS(unittest.TestCase):
             self.harness.get_relation_data(self.rel_id, "wazuh-indexer/0")["tls_ca_renewed"]
             == "True"
         )
+        assert (
+            "/var/snap/opensearch/current/etc/opensearch"
+            in named_temporary_file.call_args_list[0][1]["dir"]
+        )
         # Note that the old flag is left intact
         assert (
             self.harness.get_relation_data(self.rel_id, "wazuh-indexer/0")["tls_ca_renewing"]
@@ -1341,11 +1424,13 @@ class TestOpenSearchTLS(unittest.TestCase):
             )
         )
     )
+    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS._remove_ca_from_request_bundle")
     @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS.reload_tls_certificates")
+    @patch("charms.opensearch.v0.opensearch_tls.tempfile.NamedTemporaryFile")
     @patch("charms.opensearch.v0.opensearch_tls.run_cmd")
     @patch(f"{PEER_CLUSTERS_MANAGER}.deployment_desc")
     # Mocks to avoid I/O
-    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS._read_stored_ca")
+    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS.read_stored_ca")
     @patch("charms.opensearch.v0.opensearch_tls.exists", return_value=True)
     @patch("opensearch.OpenSearchSnap.write_file")
     @patch("builtins.open", side_effect=unittest.mock.mock_open())
@@ -1361,10 +1446,12 @@ class TestOpenSearchTLS(unittest.TestCase):
         __,
         ___,
         _____,
-        _read_stored_ca,
+        read_stored_ca,
         deployment_desc,
         run_cmd,
+        named_temporary_file,
         reload_tls_certificates,
+        mock_remove_ca_from_request_bundle,
     ):
         """Test CA rotation 3rd stage -- *unit* certificate.
 
@@ -1436,11 +1523,13 @@ class TestOpenSearchTLS(unittest.TestCase):
         )
 
         # The new CA cert has been saved to the keystore earlier
-        _read_stored_ca.return_value = ca
+        read_stored_ca.return_value = ca
 
         # Applies to ANY deployment type
         deployment_desc.return_value = DeploymentDescription(
-            config=PeerClusterConfig(cluster_name="", init_hold=False, roles=[]),
+            config=PeerClusterConfig(
+                cluster_name="", init_hold=False, roles=[], profile="production"
+            ),
             start=StartMode.WITH_GENERATED_ROLES,
             pending_directives=[],
             typ=deployment_type,
@@ -1473,6 +1562,8 @@ class TestOpenSearchTLS(unittest.TestCase):
 
         self.charm.tls._on_certificate_available(event_mock)
 
+        mock_remove_ca_from_request_bundle.assert_called_once()
+
         # Saving new cert, cleaning up CA renewal flag, removing old CA from keystore
         # Note: the high number of operations come from the fact that on each certificate received
         # the 'issuer' is checked on each certificate that is saved on the disk.
@@ -1491,6 +1582,10 @@ class TestOpenSearchTLS(unittest.TestCase):
             in run_cmd.call_args_list[1].args[0]
         )
         assert re.search("keytool .*-delete .*-alias old-ca", run_cmd.call_args_list[-1].args[0])
+        assert (
+            "/var/snap/opensearch/current/etc/opensearch"
+            in named_temporary_file.call_args_list[0][1]["dir"]
+        )
 
         assert "tls_ca_renewing" not in self.harness.get_relation_data(
             self.rel_id, "wazuh-indexer/0"
@@ -1517,10 +1612,12 @@ class TestOpenSearchTLS(unittest.TestCase):
             )
         )
     )
+    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS._add_ca_to_request_bundle")
+    @patch("charms.opensearch.v0.opensearch_tls.tempfile.NamedTemporaryFile")
     @patch("charms.opensearch.v0.opensearch_tls.run_cmd")
     @patch(f"{PEER_CLUSTERS_MANAGER}.deployment_desc")
     # Mock to avoid I/O
-    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS._read_stored_ca")
+    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS.read_stored_ca")
     @patch("builtins.open", side_effect=unittest.mock.mock_open())
     def test_on_certificate_available_rotation_ongoing_on_this_unit(
         # NOTE: Syntax: parametrized parameter comes first
@@ -1528,14 +1625,21 @@ class TestOpenSearchTLS(unittest.TestCase):
         deployment_type,
         leader,
         _,
-        _read_stored_ca,
+        read_stored_ca,
         deployment_desc,
         run_cmd,
+        named_temporary_file,
+        __,
     ):
         """Additional 'certificate-available' event while processing CA rotation.
 
-        In case any stage of a CA cert rotation is being processed,
-        further 'certificate-available' events are deferred.
+        This run represents a 'certificate-available' right before the leader
+        sets the TLS renewal flags in the peer relation.
+
+        In this case, the leader must execute the update logic for itself.
+
+        Remaining units will just wait until the first flags are set, hence
+        will not have `run_cmd` calls.
 
         Applies to:
          - any deployment
@@ -1558,11 +1662,13 @@ class TestOpenSearchTLS(unittest.TestCase):
             },
         )
 
-        _read_stored_ca.return_value = "stored_ca"
+        read_stored_ca.return_value = "stored_ca"
 
         # Applies to ANY deployment type
         deployment_desc.return_value = DeploymentDescription(
-            config=PeerClusterConfig(cluster_name="", init_hold=False, roles=[]),
+            config=PeerClusterConfig(
+                cluster_name="", init_hold=False, roles=[], profile="production"
+            ),
             start=StartMode.WITH_GENERATED_ROLES,
             pending_directives=[],
             typ=deployment_type,
@@ -1570,13 +1676,11 @@ class TestOpenSearchTLS(unittest.TestCase):
             state=DeploymentState(value=State.ACTIVE),
         )
 
-        event_mock = MagicMock(
+        self.charm.on.certificate_available = MagicMock(
             certificate_signing_request=csr, chain=chain, certificate=cert, ca=ca
         )
-        self.charm.on.certificate_available = MagicMock()
 
         self.harness.set_leader(is_leader=leader)
-        original_status = self.harness.model.unit.status
 
         # This unit is within the process of certificate renewal
         with self.harness.hooks_disabled():
@@ -1584,19 +1688,34 @@ class TestOpenSearchTLS(unittest.TestCase):
                 self.rel_id, f"{self.charm.unit.name}", {"tls_ca_renewing": "True"}
             )
 
-        self.charm.tls._on_certificate_available(event_mock)
+        self.charm.tls._on_certificate_available(self.charm.on.certificate_available)
 
-        # No action taken, no change on status or certificates
-        assert run_cmd.call_count == 0
-        assert self.harness.model.unit.status == original_status
-        self.charm.on.certificate_available.defer.called_once()
-        assert self.secret_store.get_object(Scope.APP, CertType.APP_ADMIN.val) == {
-            "csr": csr,
-            "keystore-password": "keystore_12345",
-            "truststore-password": "truststore_12345",
-            "ca-cert": "old_ca_cert",
-            "cert": "old_cert",
-        }
+        # exactly three run_cmd commands to be executed: checking the current CA for the
+        # admin cert, the unit_http cert and the unit_transport cert
+        if leader:
+            assert run_cmd.call_count == 3
+            assert self.harness.model.unit.status == MaintenanceStatus(
+                "Applying new CA certificate..."
+            )
+            assert self.secret_store.get_object(Scope.APP, CertType.APP_ADMIN.val) == {
+                "csr": csr,
+                "chain": "new_chain",
+                "keystore-password": "keystore_12345",
+                "truststore-password": "truststore_12345",
+                "ca-cert": "new_ca",
+                "cert": "new_cert",
+            }
+        else:
+            # We have scope == Scope.APP, so we will skip the entire logic
+            assert run_cmd.call_count == 0
+            assert self.harness.model.unit.status == MaintenanceStatus("")
+            assert self.secret_store.get_object(Scope.APP, CertType.APP_ADMIN.val) == {
+                "csr": csr,
+                "keystore-password": "keystore_12345",
+                "truststore-password": "truststore_12345",
+                "ca-cert": "old_ca_cert",
+                "cert": "old_cert",
+            }
 
     # Mock to investigate/compare/alter
     @parameterized.expand(
@@ -1611,10 +1730,12 @@ class TestOpenSearchTLS(unittest.TestCase):
             )
         )
     )
+    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS._add_ca_to_request_bundle")
+    @patch("charms.opensearch.v0.opensearch_tls.tempfile.NamedTemporaryFile")
     @patch("charms.opensearch.v0.opensearch_tls.run_cmd")
     @patch(f"{PEER_CLUSTERS_MANAGER}.deployment_desc")
     # Mock to avoid I/O
-    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS._read_stored_ca")
+    @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS.read_stored_ca")
     @patch("builtins.open", side_effect=unittest.mock.mock_open())
     def test_on_certificate_available_rotation_ongoing_on_another_unit(
         # NOTE: Syntax: parametrized parameter comes first
@@ -1622,14 +1743,18 @@ class TestOpenSearchTLS(unittest.TestCase):
         deployment_type,
         leader,
         _,
-        _read_stored_ca,
+        read_stored_ca,
         deployment_desc,
         run_cmd,
+        __,
+        mock_add_ca_to_request_bundle,
     ):
         """Additional 'certificate-available' event while processing CA rotation.
 
-        In case any stage of a CA cert rotation is being processed,
-        further 'certificate-available' events are deferred.
+        In this case, the leader must execute the update logic for itself.
+
+        Remaining units will just wait until the first flags are set, hence
+        will not have `run_cmd` calls.
 
         Applies to:
          - any deployment
@@ -1652,11 +1777,13 @@ class TestOpenSearchTLS(unittest.TestCase):
             },
         )
 
-        _read_stored_ca.return_value = "stored_ca"
+        read_stored_ca.return_value = "stored_ca"
 
         # Applies to ANY deployment type
         deployment_desc.return_value = DeploymentDescription(
-            config=PeerClusterConfig(cluster_name="", init_hold=False, roles=[]),
+            config=PeerClusterConfig(
+                cluster_name="", init_hold=False, roles=[], profile="production"
+            ),
             start=StartMode.WITH_GENERATED_ROLES,
             pending_directives=[],
             typ=deployment_type,
@@ -1664,13 +1791,11 @@ class TestOpenSearchTLS(unittest.TestCase):
             state=DeploymentState(value=State.ACTIVE),
         )
 
-        event_mock = MagicMock(
+        self.charm.on.certificate_available = MagicMock(
             certificate_signing_request=csr, chain=chain, certificate=cert, ca=ca
         )
-        self.charm.on.certificate_available = MagicMock()
 
         self.harness.set_leader(is_leader=leader)
-        original_status = self.harness.model.unit.status
 
         # This unit has updated CA certificate
         # but another unit of the cluster is still within the process
@@ -1683,16 +1808,31 @@ class TestOpenSearchTLS(unittest.TestCase):
                 self.rel_id, f"{self.charm.app.name}/1", {"tls_ca_renewing": "True"}
             )
 
-        self.charm.tls._on_certificate_available(event_mock)
+        self.charm.tls._on_certificate_available(self.charm.on.certificate_available)
 
-        # No action taken, no change on status or certificates
-        assert run_cmd.call_count == 0
-        assert self.harness.model.unit.status == original_status
-        self.charm.on.certificate_available.defer.called_once()
-        assert self.secret_store.get_object(Scope.APP, CertType.APP_ADMIN.val) == {
-            "csr": csr,
-            "keystore-password": "keystore_12345",
-            "truststore-password": "truststore_12345",
-            "ca-cert": "old_ca_cert",
-            "cert": "old_cert",
-        }
+        # exactly three run_cmd commands to be executed: checking the current CA for the
+        # admin cert, the unit_http cert and the unit_transport cert
+        if leader:
+            assert run_cmd.call_count == 3
+            assert self.harness.model.unit.status == MaintenanceStatus(
+                "Applying new CA certificate..."
+            )
+            assert self.secret_store.get_object(Scope.APP, CertType.APP_ADMIN.val) == {
+                "csr": csr,
+                "chain": "new_chain",
+                "keystore-password": "keystore_12345",
+                "truststore-password": "truststore_12345",
+                "ca-cert": "new_ca",
+                "cert": "new_cert",
+            }
+        else:
+            # We have scope == Scope.APP, so we will skip the entire logic
+            assert run_cmd.call_count == 0
+            assert self.harness.model.unit.status == MaintenanceStatus("")
+            assert self.secret_store.get_object(Scope.APP, CertType.APP_ADMIN.val) == {
+                "csr": csr,
+                "keystore-password": "keystore_12345",
+                "truststore-password": "truststore_12345",
+                "ca-cert": "old_ca_cert",
+                "cert": "old_cert",
+            }

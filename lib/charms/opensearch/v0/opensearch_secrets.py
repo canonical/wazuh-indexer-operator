@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Dict, Optional, Union
 
 from charms.opensearch.v0.constants_charm import KibanaserverUser, OpenSearchSystemUsers
 from charms.opensearch.v0.constants_secrets import (
+    AZURE_CREDENTIALS,
     HASH_POSTFIX,
     PW_POSTFIX,
     S3_CREDENTIALS,
@@ -27,7 +28,7 @@ from charms.opensearch.v0.opensearch_internal_data import (
     Scope,
     SecretCache,
 )
-from ops import JujuVersion, Secret, SecretNotFoundError
+from ops import JujuVersion, Relation, Secret, SecretNotFoundError
 from ops.charm import SecretChangedEvent
 from ops.framework import Object
 from overrides import override
@@ -79,7 +80,7 @@ class OpenSearchSecrets(Object, RelationDataStore):
             logging.info(f"Label {event.secret.label} was meaningless for us, returning")
             return
 
-        # We need to take action on 3 secret types
+        # We need to take action on 5 secret types
         # 1. TLS credentials change
         #     - Action: update credentials files
         # 2. 'kibanaserver' user credentials change
@@ -89,6 +90,8 @@ class OpenSearchSecrets(Object, RelationDataStore):
         #     - Note: Leader is updated already
         # 4.  S3 credentials (secret / access keys) in large relations
         #     - Action: write them into the opensearch.yml by running backup module
+        #
+        # 5.  Azure credentials (storage account / secret key)
 
         system_user_hash_keys = [
             self._charm.secrets.hash_key(user) for user in OpenSearchSystemUsers
@@ -97,6 +100,7 @@ class OpenSearchSecrets(Object, RelationDataStore):
             CertType.APP_ADMIN.val,
             self._charm.secrets.password_key(KibanaserverUser),
             S3_CREDENTIALS,
+            AZURE_CREDENTIALS,
         ]
 
         # Variables for better readability
@@ -126,10 +130,6 @@ class OpenSearchSecrets(Object, RelationDataStore):
         # broadcast secret updates to related sub-clusters
         if self.charm.opensearch_peer_cm.is_provider(typ="main"):
             self.charm.peer_cluster_provider.refresh_relation_data(event, can_defer=False)
-
-        # all units must persist the s3 access & secret keys in opensearch.yml
-        if label_key == S3_CREDENTIALS:
-            self._charm.backup.manual_update(event)
 
     def _user_from_hash_key(self, key):
         """Which user is referred to by key?"""
@@ -201,7 +201,9 @@ class OpenSearchSecrets(Object, RelationDataStore):
         self.cached_secrets.set_meta(scope, label, secret)
         return secret
 
-    def _get_juju_secret_content(self, scope: Scope, key: str) -> Optional[Dict[str, str]]:
+    def _get_juju_secret_content(
+        self, scope: Scope, key: str, peek: bool = False
+    ) -> Optional[Dict[str, str]]:
         cached_secret_content = self.cached_secrets.get_content(scope, self.label(scope, key))
         if cached_secret_content:
             return cached_secret_content
@@ -210,7 +212,10 @@ class OpenSearchSecrets(Object, RelationDataStore):
         if not secret:
             return None
 
-        content = secret.get_content()
+        if peek:
+            content = secret.peek_content()
+        else:
+            content = secret.get_content()
         self.cached_secrets.put_content(scope, self.label(scope, key), content=content)
         return content
 
@@ -322,12 +327,12 @@ class OpenSearchSecrets(Object, RelationDataStore):
             raise TypeError(f"Secret {scope}:{key} is to be retrieved with 'get_object()'")
 
     @override
-    def get_object(self, scope: Scope, key: str) -> Optional[Dict[str, any]]:
+    def get_object(self, scope: Scope, key: str, peek: bool = False) -> Optional[Dict[str, any]]:
         """Get dict object from the relation data store."""
         if not self.implements_secrets:
             return super().get_object(scope, key)
 
-        return self._get_juju_secret_content(scope, key)
+        return self._get_juju_secret_content(scope, key, peek)
 
     @override
     def put(self, scope: Scope, key: str, value: Optional[Union[any]]) -> None:
@@ -368,3 +373,13 @@ class OpenSearchSecrets(Object, RelationDataStore):
         self._remove_juju_secret(scope, key)
 
         logging.debug(f"Deleted secret {scope}:{key}")
+
+    def get_secret_id(self, scope: Scope, key: str) -> Optional[str]:
+        """Get the secret ID from the cache."""
+        label = self.label(scope, key)
+        return self._charm.peers_data.get(scope, label)
+
+    def grant_secret_to_relation(self, secret_id: int, relation: Relation):
+        """Grant a secret to a relation."""
+        secret = self._charm.model.get_secret(id=secret_id)
+        secret.grant(relation)

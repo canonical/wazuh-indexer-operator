@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Type
 
 from charms.grafana_agent.v0.cos_agent import COSAgentProvider
 from charms.opensearch.v0.constants_charm import (
+    PERFORMANCE_PROFILE,
     AdminUser,
     AdminUserInitProgress,
     AdminUserNotConfigured,
@@ -49,7 +50,11 @@ from charms.opensearch.v0.helper_security import (
     generate_hashed_password,
     generate_password,
 )
-from charms.opensearch.v0.models import DeploymentDescription, DeploymentType
+from charms.opensearch.v0.models import (
+    DeploymentDescription,
+    DeploymentType,
+    PerformanceType,
+)
 from charms.opensearch.v0.opensearch_backups import backup
 from charms.opensearch.v0.opensearch_config import OpenSearchConfig
 from charms.opensearch.v0.opensearch_distro import OpenSearchDistribution
@@ -67,13 +72,16 @@ from charms.opensearch.v0.opensearch_exceptions import (
 from charms.opensearch.v0.opensearch_fixes import OpenSearchFixes
 from charms.opensearch.v0.opensearch_health import HealthColors, OpenSearchHealth
 from charms.opensearch.v0.opensearch_internal_data import RelationDataStore, Scope
+from charms.opensearch.v0.opensearch_keystore import OpenSearchKeystoreNotReadyError
 from charms.opensearch.v0.opensearch_locking import OpenSearchNodeLock
 from charms.opensearch.v0.opensearch_nodes_exclusions import OpenSearchExclusions
+from charms.opensearch.v0.opensearch_oauth import OAuthHandler
 from charms.opensearch.v0.opensearch_peer_clusters import (
     OpenSearchPeerClustersManager,
     OpenSearchProvidedRolesException,
     StartMode,
 )
+from charms.opensearch.v0.opensearch_performance_profile import OpenSearchPerformance
 from charms.opensearch.v0.opensearch_plugin_manager import OpenSearchPluginManager
 from charms.opensearch.v0.opensearch_plugins import OpenSearchPluginError
 from charms.opensearch.v0.opensearch_relation_peer_cluster import (
@@ -82,7 +90,7 @@ from charms.opensearch.v0.opensearch_relation_peer_cluster import (
 )
 from charms.opensearch.v0.opensearch_relation_provider import OpenSearchProvider
 from charms.opensearch.v0.opensearch_secrets import OpenSearchSecrets
-from charms.opensearch.v0.opensearch_tls import OpenSearchTLS
+from charms.opensearch.v0.opensearch_tls import OLD_CA_ALIAS, OpenSearchTLS
 from charms.opensearch.v0.opensearch_users import (
     OpenSearchUserManager,
     OpenSearchUserMgmtError,
@@ -192,11 +200,13 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
         self.tls = OpenSearchTLS(
             self, PeerRelationName, self.opensearch.paths.jdk, self.opensearch.paths.certs
         )
+        self.oauth = OAuthHandler(self)
         self.status = Status(self)
         self.health = OpenSearchHealth(self)
         self.node_lock = OpenSearchNodeLock(self)
 
         self.plugin_manager = OpenSearchPluginManager(self)
+
         self.backup = backup(self)
 
         self.user_manager = OpenSearchUserManager(self)
@@ -238,6 +248,7 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
             metrics_endpoints=[],
             scrape_configs=self._scrape_config,
             refresh_events=[
+                self.on.config_changed,
                 self.on.set_password_action,
                 self.on.secret_changed,
                 self.on[PeerRelationName].relation_changed,
@@ -246,6 +257,8 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
             metrics_rules_dir="./src/alert_rules/prometheus",
             log_slots=["opensearch:logs"],
         )
+
+        self.performance_profile = OpenSearchPerformance(self)
         # Ensure that only one instance of the `_on_peer_relation_changed` handler exists
         # in the deferred event queue
         self._is_peer_rel_changed_deferred = False
@@ -412,7 +425,15 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
             "data" in deployment_desc.config.roles
             and self.unit.is_leader()
             and deployment_desc.typ == DeploymentType.OTHER
-            and not self.peers_data.get(Scope.APP, "security_index_initialised", False)
+            and (
+                not self.peers_data.get(Scope.APP, "security_index_initialised", False)
+                or (
+                    # in case all data-nodes are powered down after being previously started
+                    # ignore the lock to get a data-node started, as it holds security index
+                    self.peers_data.get(Scope.UNIT, "started")
+                    and not self.opensearch.is_service_started()
+                )
+            )
         )
         self._start_opensearch_event.emit(ignore_lock=ignore_lock)
 
@@ -622,7 +643,9 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
                 HealthColors.GREEN,
                 HealthColors.IGNORE,
             ]:
-                event.defer()
+                logger.warning(
+                    f"Update status: exclusions updated and cluster health is {health}."
+                )
 
             if health == HealthColors.UNKNOWN:
                 return
@@ -642,6 +665,14 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
         ):
             self.opensearch_provider.remove_lingering_relation_users_and_roles()
 
+        # If the unit reloads its certs but the other units are not ready yet
+        # we need to wait for them all to be ready before deleting the old CA
+        if (
+            self.tls.read_stored_ca(OLD_CA_ALIAS)
+            and self.tls.ca_and_certs_rotation_complete_in_cluster()
+        ):
+            logger.debug("update_status: Detected CA rotation complete in cluster")
+            self.tls.on_ca_certs_rotation_complete()
         # If relation not broken - leave
         if self.model.get_relation("certificates") is not None:
             return
@@ -649,8 +680,19 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
         # handle when/if certificates are expired
         self._check_certs_expiration(event)
 
+    def trigger_restart(self):
+        """Trigger a restart of the service."""
+        self._restart_opensearch_event.emit()
+
     def _on_config_changed(self, event: ConfigChangedEvent):  # noqa C901
         """On config changed event. Useful for IP changes or for user provided config changes."""
+        if not self.performance_profile.current:
+            # We are running (1) install or (2) an upgrade on instance that pre-dates profile
+            # First, we set this unit's effective profile -> 1G heap and no index templates.
+            # Our goal is to make sure this value exists once the refresh is finished
+            # and it represents the accurate value for this unit.
+            self.performance_profile.current = PerformanceType.TESTING
+
         if self.opensearch_config.update_host_if_needed():
             self.status.set(MaintenanceStatus(TLSNewCertsRequested))
             self.tls.delete_stored_tls_resources()
@@ -672,54 +714,79 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
             # handle cluster change to main-orchestrator (i.e: init_hold: true -> false)
             self._handle_change_to_main_orchestrator_if_needed(event, previous_deployment_desc)
 
-        # todo: handle gracefully configuration setting at start of the charm
-        if not self.plugin_manager.check_plugin_manager_ready():
+        if self.upgrade_in_progress:
+            logger.warning(
+                "Changing config during an upgrade is not supported. The charm may be in a broken, unrecoverable state"
+            )
+            event.defer()
             return
 
+        if not self.opensearch.is_node_up():
+            logger.debug("Node not up yet, deferring plugin check")
+            # possible enhancement:
+            # currently we wait for Opensearch to be started before applying any plugin
+            # this could be improved as some plugins don't require the service to run
+            event.defer()
+            return
+
+        perf_profile_needs_restart = False
+        plugin_needs_restart = False
+
         try:
-            if not self.plugin_manager.check_plugin_manager_ready():
-                raise OpenSearchNotFullyReadyError()
+            original_status = None
+            if self.unit.status.message not in [
+                PluginConfigChangeError,
+                PluginConfigCheck,
+            ]:
+                logger.debug(f"Plugin manager: storing status {self.unit.status.message}")
+                original_status = self.unit.status
+                self.status.set(MaintenanceStatus(PluginConfigCheck))
 
-            if self.unit.is_leader():
-                self.status.set(MaintenanceStatus(PluginConfigCheck), app=True)
-
-            if self.plugin_manager.run():
-                if self.upgrade_in_progress:
-                    logger.warning(
-                        "Changing config during an upgrade is not supported. The charm may be in a broken, "
-                        "unrecoverable state"
-                    )
-                    event.defer()
-                    return
-
-                self._restart_opensearch_event.emit()
+            plugin_needs_restart = self.plugin_manager.run()
         except (OpenSearchNotFullyReadyError, OpenSearchPluginError) as e:
             if isinstance(e, OpenSearchNotFullyReadyError):
                 logger.warning("Plugin management: cluster not ready yet at config changed")
             else:
-                self.status.set(BlockedStatus(PluginConfigChangeError), app=True)
+                logger.warning(f"{PluginConfigChangeError}: {str(e)}")
+                self.status.set(BlockedStatus(PluginConfigChangeError))
             event.defer()
-            # Decided to defer the event. We can clean up the status and reset it once the
-            # config-changed is called again.
-            if self.unit.is_leader():
-                self.status.clear(PluginConfigCheck, app=True)
-            return
+            self.status.clear(PluginConfigCheck)
+        except OpenSearchKeystoreNotReadyError:
+            logger.warning("Keystore not ready yet")
+            # defer, and let it finish the status clearing down below
+            event.defer()
+        else:
+            self.status.clear(PluginConfigChangeError)
+            self.status.clear(PluginConfigCheck)
+            if original_status:
+                self.status.set(original_status)
 
-        if self.unit.is_leader():
-            self.status.clear(PluginConfigCheck, app=True)
-            self.status.clear(PluginConfigChangeError, app=True)
+        perf_profile_needs_restart = self.performance_profile.apply(
+            self.config.get(PERFORMANCE_PROFILE)
+        )
+
+        if not self.opensearch_provider.update_relations_roles_mapping():
+            event.defer()
+
+        if self.opensearch.is_service_started() and (
+            plugin_needs_restart or perf_profile_needs_restart
+        ):
+            self._restart_opensearch_event.emit()
 
     def _on_set_password_action(self, event: ActionEvent):
         """Set new admin password from user input or generate if not passed."""
-        if self.upgrade_in_progress:
-            event.fail("Setting password not supported while upgrade in-progress")
+        if not self.opensearch_peer_cm.deployment_desc():
+            event.fail("The action can only be run once the deployment is complete.")
             return
         if self.opensearch_peer_cm.deployment_desc().typ != DeploymentType.MAIN_ORCHESTRATOR:
-            event.fail("The action can be run only on the leader unit of the main cluster.")
+            event.fail("The action can only be run on the main orchestrator cluster.")
+            return
+        if not self.unit.is_leader():
+            event.fail("The action can only be run on leader unit.")
             return
 
-        if not self.unit.is_leader():
-            event.fail("The action can be run only on leader unit.")
+        if self.upgrade_in_progress:
+            event.fail("Setting password not supported while upgrade in-progress")
             return
 
         user_name = event.params.get("username")
@@ -747,6 +814,10 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
 
     def _on_get_password_action(self, event: ActionEvent):
         """Return the password and cert chain for the admin user of the cluster."""
+        if not self.opensearch_peer_cm.deployment_desc():
+            event.fail("The action can only be run once the deployment is complete.")
+            return
+
         user_name = event.params.get("username")
         if user_name not in OpenSearchUsers:
             event.fail(f"Only the {OpenSearchUsers} username is allowed for this action.")
@@ -762,7 +833,7 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
 
         password = self.secrets.get(Scope.APP, self.secrets.password_key(user_name))
         cert = self.secrets.get_object(
-            Scope.APP, CertType.APP_ADMIN.val
+            Scope.APP, CertType.APP_ADMIN.val, peek=True
         )  # replace later with new user certs
 
         event.set_results(
@@ -788,12 +859,16 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
         - Run the security admin script
         """
         if scope == Scope.UNIT:
-            admin_secrets = self.secrets.get_object(Scope.APP, CertType.APP_ADMIN.val) or {}
+            admin_secrets = (
+                self.secrets.get_object(Scope.APP, CertType.APP_ADMIN.val, peek=True) or {}
+            )
             if not (truststore_pwd := admin_secrets.get("truststore-password")):
                 event.defer()
                 return
 
-            keystore_pwd = self.secrets.get_object(scope, cert_type.val)["keystore-password"]
+            keystore_pwd = self.secrets.get_object(scope, cert_type.val, peek=True)[
+                "keystore-password"
+            ]
 
             # node http or transport cert
             self.opensearch_config.set_node_tls_conf(
@@ -818,14 +893,16 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
                     logger.error("Could not reload TLS certificates via API, will restart.")
                     self._restart_opensearch_event.emit()
                 else:
-                    # the chain.pem file should only be updated after applying the new certs
-                    # otherwise there could be TLS verification errors after renewing the CA
-                    self.tls.update_request_ca_bundle()
                     self.status.clear(TLSNotFullyConfigured)
                     self.tls.reset_ca_rotation_state()
-                    # cleaning the former CA certificate from the truststore
-                    # must only be done AFTER all renewed certificates are available and loaded
-                    self.tls.remove_old_ca()
+                    # if all certs are stored and CA rotation is complete in the cluster
+                    # we delete the old ca and update the chain to only include the new one
+                    if (
+                        self.tls.read_stored_ca(OLD_CA_ALIAS)
+                        and self.tls.ca_and_certs_rotation_complete_in_cluster()
+                    ):
+                        logger.info("on_tls_conf_set: Detected CA rotation complete in cluster")
+                        self.tls.on_ca_certs_rotation_complete()
             else:
                 event.defer()
                 return
@@ -949,12 +1026,6 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
             return
 
         if not self._can_service_start():
-            # after rotating the CA and certificates:
-            # the last host in the cluster to restart might not be able to connect to the other
-            # hosts anymore, because it is the last to renew the pem-file for requests
-            # in this case we update the pem-file to be able to connect and start the host
-            if self.peers_data.get(Scope.UNIT, "tls_ca_renewed", False):
-                self.tls.update_request_ca_bundle()
             self.node_lock.release()
             logger.info("Could not start opensearch service. Will retry next event.")
             event.defer()
@@ -988,11 +1059,6 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
             event.defer()
             self.unit.status = BlockedStatus(str(e))
             return
-
-        # we should update the chain.pem file to avoid TLS verification errors
-        # this happens on restarts after applying a new admin cert on CA rotation
-        if self.peers_data.get(Scope.UNIT, "tls_ca_renewed", False):
-            self.tls.update_request_ca_bundle()
 
         try:
             self.opensearch.start(
@@ -1034,10 +1100,11 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
                 == StartMode.WITH_GENERATED_ROLES
             )
         ):
-            admin_secrets = self.secrets.get_object(Scope.APP, CertType.APP_ADMIN.val)
+            admin_secrets = self.secrets.get_object(Scope.APP, CertType.APP_ADMIN.val, peek=True)
             try:
                 self._initialize_security_index(admin_secrets)
-                self.peers_data.put(Scope.APP, "security_index_initialised", True)
+                self.put_security_index_initialized(event)
+
             except OpenSearchCmdError as e:
                 logger.debug(f"Error when initializing the security index: {e.out}")
                 event.defer()
@@ -1161,10 +1228,6 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
         if self.opensearch_peer_cm.is_provider():
             self.peer_cluster_provider.refresh_relation_data(event, can_defer=False)
 
-        # before resetting the CA rotation state, we remove the old ca from the truststore
-        if self.peers_data.get(Scope.UNIT, "tls_ca_renewed", False):
-            self.tls.remove_old_ca()
-
         # update the peer relation data for TLS CA rotation routine
         self.tls.reset_ca_rotation_state()
         if self.is_tls_full_configured_in_cluster():
@@ -1181,6 +1244,15 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
                 self.tls.request_new_admin_certificate()
             else:
                 self.tls.store_admin_tls_secrets_if_applies()
+        # If the reload through API failed, we restart the service
+        # We remove the old CA and update the chain to only include the new one
+        # if all certs are stored and CA rotation is complete in the cluster
+        if (
+            self.tls.read_stored_ca(OLD_CA_ALIAS)
+            and self.tls.ca_and_certs_rotation_complete_in_cluster()
+        ):
+            logger.info("post_start_init: Detected CA rotation complete in cluster")
+            self.tls.on_ca_certs_rotation_complete()
 
     def _stop_opensearch(self, *, restart: bool = False) -> None:
         """Stop OpenSearch if possible."""
@@ -1191,7 +1263,7 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
                 nodes = self._get_nodes(True)
                 # do not add exclusions if it's the last unit to stop
                 # otherwise cluster manager election will be blocked when starting up again
-                # and re-using storage
+                # and reusing storage
                 if len(nodes) > 1:
                     # 1. Add current node to the voting + alloc exclusions
                     self.opensearch_exclusions.add_current(voting=True, allocation=not restart)
@@ -1388,11 +1460,11 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
             f"-cn {self.opensearch_peer_cm.deployment_desc().config.cluster_name}",
             f"-h {self.unit_ip}",
             f"-ts {self.opensearch.paths.certs}/ca.p12",
-            f"-tspass {self.secrets.get_object(Scope.APP, CertType.APP_ADMIN.val)['truststore-password']}",
+            f"-tspass {self.secrets.get_object(Scope.APP, CertType.APP_ADMIN.val, peek=True)['truststore-password']}",
             "-tsalias ca",
             "-tst PKCS12",
             f"-ks {self.opensearch.paths.certs}/{CertType.APP_ADMIN}.p12",
-            f"-kspass {self.secrets.get_object(Scope.APP, CertType.APP_ADMIN.val)['keystore-password']}",
+            f"-kspass {self.secrets.get_object(Scope.APP, CertType.APP_ADMIN.val, peek=True)['keystore-password']}",
             f"-ksalias {CertType.APP_ADMIN}",
             "-kst PKCS12",
         ]
@@ -1406,6 +1478,31 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
             "plugins/opensearch-security/tools/securityadmin.sh", " ".join(args)
         )
         self.status.clear(SecurityIndexInitProgress)
+
+    def update_security_config(self, admin_secrets: Dict[str, any], file: str) -> None:
+        """Run the security_admin script for specified config file, avoiding changes to others."""
+        if not file.startswith("opensearch-security"):
+            raise ValueError("security config is expected")
+
+        args = [
+            f"-f {self.opensearch.paths.conf}/{file}",
+            f"-cn {self.opensearch_peer_cm.deployment_desc().config.cluster_name}",
+            f"-h {self.unit_ip}",
+            f"-ts {self.opensearch.paths.certs}/ca.p12",
+            f"-tspass {admin_secrets['truststore-password']}",
+            "-tst PKCS12",
+            f"-ks {self.opensearch.paths.certs}/{CertType.APP_ADMIN}.p12",
+            f"-kspass {admin_secrets['keystore-password']}",
+            "-kst PKCS12",
+        ]
+
+        admin_key_pwd = admin_secrets.get("key-password", None)
+        if admin_key_pwd is not None:
+            args.append(f"-keypass {admin_key_pwd}")
+
+        self.opensearch.run_script(
+            "plugins/opensearch-security/tools/securityadmin.sh", " ".join(args)
+        )
 
     def _get_nodes(self, use_localhost: bool) -> List[Node]:
         """Fetch the list of nodes of the cluster, depending on the requester."""
@@ -1650,7 +1747,11 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
     def _scrape_config(self) -> List[Dict]:
         """Generates the scrape config as needed."""
         if (
-            not (app_secrets := self.secrets.get_object(Scope.APP, CertType.APP_ADMIN.val))
+            not (
+                app_secrets := self.secrets.get_object(
+                    Scope.APP, CertType.APP_ADMIN.val, peek=True
+                )
+            )
             or not (ca := app_secrets.get("ca-cert"))
             or not (pwd := self.secrets.get(Scope.APP, self.secrets.password_key(COSUser)))
             or not self._get_prometheus_labels()
@@ -1678,6 +1779,15 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
             self.status.clear(PClusterNoDataNode)
         else:
             self._start_opensearch_event.emit(ignore_lock=True)
+
+    def put_security_index_initialized(self, event: EventBase) -> None:
+        """Set the security index initialized flag."""
+        self.peers_data.put(Scope.APP, "security_index_initialised", True)
+        if self.opensearch_peer_cm.deployment_desc().typ == DeploymentType.MAIN_ORCHESTRATOR:
+            self.peer_cluster_provider.refresh_relation_data(event)
+        else:
+            # notify the main orchestrator that the security index is initialized
+            self.peer_cluster_requirer.set_security_index_initialised()
 
     @property
     def unit_ip(self) -> str:
