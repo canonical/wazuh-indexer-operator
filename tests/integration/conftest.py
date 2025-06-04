@@ -28,4 +28,4 @@ def charm(ubuntu_base):
     # Return str instead of pathlib.Path since python-libjuju's model.deploy(), juju deploy, and
     # juju bundle files expect local charms to begin with `./` or `/` to distinguish them from
     # Charmhub charms.
-    return f"./opensearch_ubuntu@{ubuntu_base}-amd64.charm"
+    return f"./wazuh-indexer_ubuntu@{ubuntu_base}-amd64.charm"
