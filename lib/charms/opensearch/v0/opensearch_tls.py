@@ -84,7 +84,7 @@ class OpenSearchTLS(Object):
         self.peer_relation = peer_relation
         self.jdk_path = jdk_path
         self.certs_path = certs_path
-        self.keytool = "opensearch.keytool"
+        self.keytool = "wazuh-server.keytool"
         self.certs = TLSCertificatesRequiresV3(charm, TLS_RELATION, expiry_notification_time=23)
 
         self.framework.observe(
