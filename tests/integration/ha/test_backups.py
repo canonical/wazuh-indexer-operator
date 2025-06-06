@@ -81,10 +81,10 @@ ALL_GROUPS = {
 
 ALL_DEPLOYMENTS_ALL_CLOUDS = list(ALL_GROUPS.values())
 SMALL_DEPLOYMENTS_ALL_CLOUDS = [
-    ALL_GROUPS[(cloud, "small")] for cloud in ["aws", "microceph", "azure"]
+    ALL_GROUPS[(cloud, "small")] for cloud in ["microceph"]  # Wazuh is only supported on microceph
 ]
 LARGE_DEPLOYMENTS_ALL_CLOUDS = [
-    ALL_GROUPS[(cloud, "large")] for cloud in ["aws", "microceph", "azure"]
+    ALL_GROUPS[(cloud, "large")] for cloud in ["microceph"]  # Wazuh is only supported on microceph
 ]
 
 
