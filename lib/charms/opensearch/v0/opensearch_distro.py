@@ -208,7 +208,7 @@ class OpenSearchDistribution(ABC):
             args: arguments passed to the script
             stdin: string input to be passed on the standard input of the subprocess.
         """
-        opensearch_command = f"opensearch.{bin_script_name}"
+        opensearch_command = f"wazuh-indexer.{bin_script_name}"
         return self._run_cmd(opensearch_command, args, stdin=stdin)
 
     def run_script(self, script_name: str, args: str = None):
@@ -217,7 +217,7 @@ class OpenSearchDistribution(ABC):
         if not os.access(script_path, os.X_OK):
             self._run_cmd(f"chmod a+x {script_path}")
 
-        self._run_cmd(f"snap run --shell opensearch.daemon -- {script_path}", args)
+        self._run_cmd(f"snap run --shell wazuh-indexer.daemon -- {script_path}", args)
 
     def request(  # noqa
         self,
