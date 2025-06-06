@@ -434,6 +434,7 @@ async def test_prometheus_monitor_user_password_change(ops_test, deploy_type: st
 
 @pytest.mark.parametrize("deploy_type", SMALL_DEPLOYMENTS)
 @pytest.mark.abort_on_fail
+@pytest.mark.skip("Wazuh: The knn plugin is not installed")
 async def test_knn_enabled_disabled(ops_test, deploy_type: str):
     config = await ops_test.model.applications[APP_NAME].get_config()
     assert config["plugin_opensearch_knn"]["default"] is True
@@ -457,7 +458,7 @@ async def test_knn_enabled_disabled(ops_test, deploy_type: str):
 
 @pytest.mark.parametrize("deploy_type", SMALL_DEPLOYMENTS)
 @pytest.mark.abort_on_fail
-@pytest.mark.skip("The knn plugin is not installed")
+@pytest.mark.skip("Wazuh: The knn plugin is not installed")
 async def test_knn_search_with_hnsw_faiss(ops_test: OpsTest, deploy_type: str) -> None:
     """Uploads data and runs a query search against the FAISS KNNEngine."""
     app = (await app_name(ops_test)) or APP_NAME
@@ -502,7 +503,7 @@ async def test_knn_search_with_hnsw_faiss(ops_test: OpsTest, deploy_type: str) -
 
 @pytest.mark.parametrize("deploy_type", SMALL_DEPLOYMENTS)
 @pytest.mark.abort_on_fail
-@pytest.mark.skip("The knn plugin is not installed")
+@pytest.mark.skip("Wazuh: The knn plugin is not installed")
 async def test_knn_search_with_hnsw_nmslib(ops_test: OpsTest, deploy_type: str) -> None:
     """Uploads data and runs a query search against the NMSLIB KNNEngine."""
     app = (await app_name(ops_test)) or APP_NAME
@@ -547,7 +548,7 @@ async def test_knn_search_with_hnsw_nmslib(ops_test: OpsTest, deploy_type: str) 
 
 @pytest.mark.parametrize("deploy_type", SMALL_DEPLOYMENTS)
 @pytest.mark.abort_on_fail
-@pytest.mark.skip("The knn plugin is not installed")
+@pytest.mark.skip("Wazuh: The knn plugin is not installed")
 async def test_knn_training_search(ops_test: OpsTest, deploy_type: str) -> None:
     """Tests the entire cycle of KNN plugin.
 
