@@ -61,14 +61,14 @@ async def test_setup_relations(ops_test: OpsTest, microk8s_model: Model):
     """
     await microk8s_model.create_offer("certificates", "certificates", "self-signed-certificates")
     await ops_test.model.consume(f"admin/{microk8s_model.name}.certificates")
-    await ops_test.model.integrate("opensearch:certificates", "certificates")
+    await ops_test.model.integrate("wazuh-indexer:certificates", "certificates")
 
     await microk8s_model.create_offer("oauth", "oauth", "hydra")
     await ops_test.model.consume(f"admin/{microk8s_model.name}.oauth")
-    await ops_test.model.integrate("opensearch:oauth", "oauth")
+    await ops_test.model.integrate("wazuh-indexer:oauth", "oauth")
 
     await ops_test.model.integrate(
-        "opensearch:opensearch-client", f"{DATA_INTEGRATOR_NAME}:opensearch"
+        "wazuh-indexer:opensearch-client", f"{DATA_INTEGRATOR_NAME}:opensearch"
     )
 
     await gather(ops_test.model.wait_for_idle(status="active"), microk8s_model.wait_for_idle())
