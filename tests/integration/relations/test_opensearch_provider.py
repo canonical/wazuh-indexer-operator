@@ -189,6 +189,7 @@ async def test_bulk_index_usage(ops_test: OpsTest):
 
 
 @pytest.mark.abort_on_fail
+@pytest.mark.skip("Wazuh: as we are in compatibility mode, OS returns a 7.x version number")
 async def test_version(ops_test: OpsTest):
     """Check version reported in the databag is consistent with the version on the charm."""
     run_version_request = await run_request(
@@ -275,7 +276,6 @@ async def test_dashboard_relation_password_change(ops_test: OpsTest):
 
 
 @pytest.mark.abort_on_fail
-@pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
 async def test_scaling(ops_test: OpsTest):
     """Test that scaling correctly updates endpoints in databag.
 
@@ -404,7 +404,6 @@ async def test_multiple_relations(ops_test: OpsTest, application_charm):
 
 
 @pytest.mark.abort_on_fail
-@pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
 async def test_multiple_relations_accessing_same_index(ops_test: OpsTest):
     """Test that two different applications can connect to the database."""
     # Relate the new application and wait for them to exchange connection data.
