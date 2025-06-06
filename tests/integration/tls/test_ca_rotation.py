@@ -122,11 +122,6 @@ async def test_build_large_deployment(ops_test: OpsTest, charm, series) -> None:
             channel=TLS_STABLE_CHANNEL,
             config={"ca-common-name": "CN_CA"},
         ),
-        ops_test.model.deploy(
-            TLS_CERTIFICATES_APP_NAME,
-            channel="stable",
-            config={"ca-common-name": "CN_CA"},
-        ),
     )
 
     # integrate TLS to all applications
