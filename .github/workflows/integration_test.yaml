@@ -36,6 +36,7 @@ jobs:
               .stdout.strip()
               .split("\n")
           )
+          spread_jobs = ["github-ci:self-hosted-linux-amd64-noble-large:tests/spread/test_charm.py:ubuntu22"]
           jobs = []
           for job in spread_jobs:
               # Example `job`: "github-ci:ubuntu-24.04:tests/spread/test_charm.py:juju36"
