@@ -198,13 +198,13 @@ async def test_build_and_deploy_small_deployment(
 
 @pytest.mark.parametrize("deploy_type", SMALL_DEPLOYMENTS)
 @pytest.mark.abort_on_fail
-@pytest.mark.skip("Wazuh: The knn plugin is not installed")
 async def test_config_switch_before_cluster_ready(ops_test: OpsTest, deploy_type) -> None:
     """Configuration change before cluster is ready.
 
     We hold the cluster without starting its unit services by not relating to tls-operator.
     """
-    await ops_test.model.applications[APP_NAME].set_config({"plugin_opensearch_knn": "true"})
+    # Wazuh: The knn plugin is not installed"
+    # await ops_test.model.applications[APP_NAME].set_config({"plugin_opensearch_knn": "true"})
     await wait_until(
         ops_test,
         apps=[APP_NAME],
@@ -223,7 +223,8 @@ async def test_config_switch_before_cluster_ready(ops_test: OpsTest, deploy_type
     assert len(ops_test.model.applications[APP_NAME].units) == 3
 
     # to be removed here once enabling plugins before startup is possible again
-    await assert_knn_config_updated(ops_test, True, check_api=False)
+    # Wazuh: The knn plugin is not installed"
+    # await assert_knn_config_updated(ops_test, True, check_api=False)
 
 
 @pytest.mark.parametrize("deploy_type", SMALL_DEPLOYMENTS)
