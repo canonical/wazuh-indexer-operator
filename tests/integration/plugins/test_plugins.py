@@ -198,6 +198,7 @@ async def test_build_and_deploy_small_deployment(
 
 @pytest.mark.parametrize("deploy_type", SMALL_DEPLOYMENTS)
 @pytest.mark.abort_on_fail
+@pytest.mark.skip("Wazuh: The knn plugin is not installed")
 async def test_config_switch_before_cluster_ready(ops_test: OpsTest, deploy_type) -> None:
     """Configuration change before cluster is ready.
 
