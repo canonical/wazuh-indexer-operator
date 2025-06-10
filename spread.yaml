@@ -107,7 +107,7 @@ backends:
           username: ubuntu
 
 suites:
-  tests/nok/:
+  tests/spread/:
     summary: General test suite
 
 path: /root/spread_project
