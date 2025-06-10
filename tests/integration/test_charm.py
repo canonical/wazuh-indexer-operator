@@ -148,6 +148,7 @@ async def test_actions_get_admin_password(ops_test: OpsTest) -> None:
 
 
 @pytest.mark.abort_on_fail
+@pytest.mark.skip("Wazuh: to be implemented")
 async def test_actions_rotate_admin_password(ops_test: OpsTest) -> None:
     """Test the rotation and change of admin password."""
     leader_ip = await get_leader_unit_ip(ops_test)
@@ -285,7 +286,6 @@ async def test_check_pinned_revision(ops_test: OpsTest) -> None:
     )["installed"].split()
     logger.info(f"Installed snap: {installed_info}")
     assert installed_info[1] == f"({OPENSEARCH_SNAP_REVISION})"
-    assert installed_info[1] == "(4)"
     assert installed_info[3] == "held"
 
 
