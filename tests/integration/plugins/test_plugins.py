@@ -263,7 +263,7 @@ async def test_small_deployments_prometheus_exporter_cos_relation(
     if not isinstance(relation_data, dict):
         relation_data = json.loads(relation_data)
     relation_data = relation_data["metrics_scrape_jobs"][0]
-    secret = await get_secret_by_label(ops_test, "opensearch:app:monitor-password")
+    secret = await get_secret_by_label(ops_test, "wazuh-indexer:app:monitor-password")
 
     assert relation_data["basic_auth"]["username"] == "monitor"
     assert relation_data["basic_auth"]["password"] == secret["monitor-password"]
@@ -362,7 +362,7 @@ async def test_large_deployment_prometheus_exporter_cos_relation(
     if not isinstance(relation_data, dict):
         relation_data = json.loads(relation_data)
     relation_data = relation_data["metrics_scrape_jobs"][0]
-    secret = await get_secret_by_label(ops_test, "opensearch:app:monitor-password")
+    secret = await get_secret_by_label(ops_test, "wazuh-indexer:app:monitor-password")
 
     assert relation_data["basic_auth"]["username"] == "monitor"
     assert relation_data["basic_auth"]["password"] == secret["monitor-password"]
