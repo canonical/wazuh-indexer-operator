@@ -129,7 +129,7 @@ async def test_oauth_access(ops_test: OpsTest, microk8s_model: Model):
     to the admin role and checking access to the admin endpoint.
     """
     global opensearch_address
-    opensearch_address = await get_leader_unit_ip(ops_test, "opensearch")
+    opensearch_address = await get_leader_unit_ip(ops_test, "wazuh-indexer")
     opensearch_url = f"https://{opensearch_address}:9200/_cat/indices"
     result = requests.get(
         opensearch_url, headers={"Authorization": f"Bearer {oauth_access_token}"}, verify=False
