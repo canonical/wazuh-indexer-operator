@@ -339,7 +339,7 @@ async def test_scaling(ops_test: OpsTest):
 
 
 @pytest.mark.abort_on_fail
-@pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
+# @pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
 async def test_multiple_relations(ops_test: OpsTest, application_charm):
     """Test that two different applications can connect to the database."""
     # scale-down for CI
@@ -440,7 +440,7 @@ async def test_multiple_relations_accessing_same_index(ops_test: OpsTest):
 
 
 @pytest.mark.abort_on_fail
-@pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
+# @pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
 async def test_admin_relation(ops_test: OpsTest):
     """Test we can create relations with admin permissions."""
     # Add an admin relation and wait for them to exchange data
@@ -477,7 +477,7 @@ async def test_admin_relation(ops_test: OpsTest):
 
 
 @pytest.mark.abort_on_fail
-@pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
+# @pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
 async def test_admin_permissions(ops_test: OpsTest):
     """Test admin permissions behave the way we want.
 
@@ -605,7 +605,7 @@ async def test_normal_user_permissions(ops_test: OpsTest):
 
 
 @pytest.mark.abort_on_fail
-@pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
+# @pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
 async def test_relation_broken(ops_test: OpsTest):
     """Test that the user is removed when the relation is broken."""
     # Retrieve the relation user.
@@ -660,7 +660,7 @@ async def test_relation_broken(ops_test: OpsTest):
 
 
 @pytest.mark.abort_on_fail
-@pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
+# @pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
 async def test_data_persists_on_relation_rejoin(ops_test: OpsTest):
     """Verify that if we recreate a relation, we can access the same index."""
     client_relation = await ops_test.model.integrate(
