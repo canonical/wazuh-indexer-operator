@@ -144,7 +144,7 @@ async def test_oauth_access(ops_test: OpsTest, microk8s_model: Model):
     )
     await action.wait()
     logger.warning(f"DEBUG: {action.results}")
-    data_integrator_user = action.results.get("wazuh-indexer", {}).get("username")
+    data_integrator_user = action.results.get("opensearch", {}).get("username")
     assert data_integrator_user, "failed to retrieve data integrator user"
 
     global original_opensearch_config
