@@ -157,6 +157,8 @@ async def test_oauth_access(ops_test: OpsTest, microk8s_model: Model):
     result = requests.get(
         opensearch_url, headers={"Authorization": f"Bearer {oauth_access_token}"}, verify=False
     )
+    logger.warning(f"DEBUG: {result.status_code}")
+    logger.warning(f"DEBUG: {result.content}")
     assert result.status_code == 200, "request expected to succeed with roles mapping"
 
 
