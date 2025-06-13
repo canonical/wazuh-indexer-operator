@@ -134,7 +134,6 @@ async def test_oauth_access(ops_test: OpsTest, microk8s_model: Model):
     result = requests.get(
         opensearch_url, headers={"Authorization": f"Bearer {oauth_access_token}"}, verify=False
     )
-    logger.warning(f"DEBUG: {result.status_code}")
     logger.warning(f"DEBUG: {result.content}")
     assert result.json().get("status") == 403, "no permissions error expected"
 
@@ -151,13 +150,13 @@ async def test_oauth_access(ops_test: OpsTest, microk8s_model: Model):
     original_opensearch_config = await ops_test.model.applications["wazuh-indexer"].get_config()
     config_with_roles = original_opensearch_config.copy()
     config_with_roles["roles_mapping"] = json.dumps({oauth_client_id: data_integrator_user})
+    logger.debug(config_with_roles)
     await ops_test.model.applications["wazuh-indexer"].set_config(config_with_roles)
     await ops_test.model.wait_for_idle(status="active")
 
     result = requests.get(
         opensearch_url, headers={"Authorization": f"Bearer {oauth_access_token}"}, verify=False
     )
-    logger.warning(f"DEBUG: {result.status_code}")
     logger.warning(f"DEBUG: {result.content}")
     assert result.status_code == 200, "request expected to succeed with roles mapping"
 
