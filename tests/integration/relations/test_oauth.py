@@ -143,6 +143,7 @@ async def test_oauth_access(ops_test: OpsTest, microk8s_model: Model):
         .run_action("get-credentials")
     )
     await action.wait()
+    logger.warning(f"DEBUG: {action.results}")
     data_integrator_user = action.results.get("wazuh-indexer", {}).get("username")
     assert data_integrator_user, "failed to retrieve data integrator user"
 
