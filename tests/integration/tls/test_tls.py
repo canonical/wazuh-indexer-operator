@@ -11,8 +11,8 @@ from pytest_operator.plugin import OpsTest
 
 from ..helpers import (
     APP_NAME,
+    CONFIG_OPTS,
     MODEL_CONFIG,
-    SERIES,
     UNIT_IDS,
     check_cluster_formation_successful,
     cluster_health,
@@ -35,30 +35,31 @@ logger = logging.getLogger(__name__)
 
 
 TLS_CERTIFICATES_APP_NAME = "self-signed-certificates"
+TLS_STABLE_CHANNEL = "latest/stable"
 # The expiry time of the secret carrying the certificate is set to 3 minutes for testing
 SECRET_EXPIRY_TIME = 180
 # Wait time for the secret to expire and be renewed
 SECRET_EXPIRY_WAIT_TIME = SECRET_EXPIRY_TIME + 60
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
-@pytest.mark.group(1)
 @pytest.mark.abort_on_fail
 @pytest.mark.skip_if_deployed
-async def test_build_and_deploy_active(ops_test: OpsTest) -> None:
+async def test_build_and_deploy_active(ops_test: OpsTest, charm, series) -> None:
     """Build and deploy one unit of OpenSearch."""
-    my_charm = await ops_test.build_charm(".")
     await ops_test.model.set_config(MODEL_CONFIG)
 
     await ops_test.model.deploy(
-        my_charm,
+        charm,
         num_units=len(UNIT_IDS),
-        series=SERIES,
+        series=series,
+        config=CONFIG_OPTS,
     )
 
     # Deploy TLS Certificates operator.
     config = {"ca-common-name": "CN_CA"}
-    await ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="latest/stable", config=config)
+    await ops_test.model.deploy(
+        TLS_CERTIFICATES_APP_NAME, channel=TLS_STABLE_CHANNEL, config=config
+    )
     await wait_until(ops_test, apps=[TLS_CERTIFICATES_APP_NAME], apps_statuses=["active"])
 
     # Relate it to OpenSearch to set up TLS.
@@ -73,8 +74,6 @@ async def test_build_and_deploy_active(ops_test: OpsTest) -> None:
     assert len(ops_test.model.applications[APP_NAME].units) == len(UNIT_IDS)
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
-@pytest.mark.group(1)
 @pytest.mark.abort_on_fail
 async def test_security_index_initialised(ops_test: OpsTest) -> None:
     """Test that the security index is well initialised."""
@@ -83,8 +82,6 @@ async def test_security_index_initialised(ops_test: OpsTest) -> None:
     assert await check_security_index_initialised(ops_test, leader_unit_ip)
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
-@pytest.mark.group(1)
 @pytest.mark.abort_on_fail
 async def test_tls_configured(ops_test: OpsTest) -> None:
     """Test that TLS is enabled when relating to the TLS Certificates Operator."""
@@ -92,8 +89,6 @@ async def test_tls_configured(ops_test: OpsTest) -> None:
         assert await check_unit_tls_configured(ops_test, unit_ip, unit_name)
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
-@pytest.mark.group(1)
 @pytest.mark.abort_on_fail
 async def test_cluster_formation_after_tls(ops_test: OpsTest) -> None:
     """Test that the cluster formation is successful after TLS setup."""
@@ -103,8 +98,6 @@ async def test_cluster_formation_after_tls(ops_test: OpsTest) -> None:
     assert await check_cluster_formation_successful(ops_test, leader_unit_ip, unit_names)
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
-@pytest.mark.group(1)
 @pytest.mark.abort_on_fail
 async def test_tls_renewal(ops_test: OpsTest) -> None:
     """Test that renewed TLS certificates are reloaded immediately without restarting."""
@@ -127,6 +120,8 @@ async def test_tls_renewal(ops_test: OpsTest) -> None:
         apps_statuses=["active"],
         units_statuses=["active"],
         wait_for_exact_units=len(UNIT_IDS),
+        idle_period=15,
+        timeout=60,
     )
 
     updated_certs = await get_loaded_tls_certificates(ops_test, leader_unit_ip)
@@ -151,6 +146,7 @@ async def test_tls_renewal(ops_test: OpsTest) -> None:
         units_statuses=["active"],
         wait_for_exact_units=len(UNIT_IDS),
         idle_period=5,
+        timeout=30,
     )
 
     updated_certs = await get_loaded_tls_certificates(ops_test, units[non_leader_id])
@@ -160,10 +156,8 @@ async def test_tls_renewal(ops_test: OpsTest) -> None:
     )
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
-@pytest.mark.group(1)
 @pytest.mark.abort_on_fail
-async def test_tls_expiration(ops_test: OpsTest) -> None:
+async def test_tls_expiration(ops_test: OpsTest, charm, series) -> None:
     """Test that expiring TLS certificates are renewed."""
     # before we can run this test, need to clean up and deploy with different config
     if APP_NAME in ops_test.model.applications:
@@ -176,18 +170,20 @@ async def test_tls_expiration(ops_test: OpsTest) -> None:
     # Deploy TLS Certificates operator
     logger.info("Deploying TLS Certificates operator")
     config = {"ca-common-name": "CN_CA", "certificate-validity": "1"}
-    await ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="latest/stable", config=config)
+    await ops_test.model.deploy(
+        TLS_CERTIFICATES_APP_NAME, channel=TLS_STABLE_CHANNEL, config=config
+    )
     await wait_until(ops_test, apps=[TLS_CERTIFICATES_APP_NAME], apps_statuses=["active"])
 
     # Deploy Opensearch operator
     await ops_test.model.set_config(MODEL_CONFIG)
-    my_charm = await ops_test.build_charm(".")
 
     logger.info("Deploying OpenSearch")
     await ops_test.model.deploy(
-        my_charm,
+        charm,
         num_units=1,
-        series=SERIES,
+        series=series,
+        config=CONFIG_OPTS,
     )
 
     await wait_until(

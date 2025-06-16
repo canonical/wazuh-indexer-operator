@@ -7,28 +7,23 @@ from types import SimpleNamespace
 from typing import Callable
 from unittest.mock import patch
 
+import tenacity
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
 
-def patch_network_get(private_address: str = "1.1.1.1") -> Callable:
-    def network_get(*args, **kwargs) -> dict:
-        """Patch for the not-yet-implemented testing backend needed for `bind_address`.
+def patch_wait_fixed() -> Callable:
+    def _wait_fixed(*args, **kwargs):
+        """Patch for the not-yet-implemented testing backend needed for `wait_fixed`.
 
         This patch decorator can be used for cases such as:
-        self.model.get_binding(event.relation).network.bind_address
+        wait_fixed(5)
         """
-        return {
-            "bind-addresses": [
-                {
-                    "addresses": [{"value": private_address}],
-                }
-            ]
-        }
+        return tenacity.wait.wait_fixed(0.1)
 
-    return patch("ops.testing._TestingModelBackend.network_get", network_get)
+    return patch("charms.opensearch.v0.opensearch_backups.wait_fixed", _wait_fixed)
 
 
 def copy_file_content_to_tmp(config_dir_path: str, source_path: str) -> str:

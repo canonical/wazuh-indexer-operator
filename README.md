@@ -56,7 +56,7 @@ juju model-config --file=./cloudinit-userdata.yaml
 To deploy a single unit of Wazuh Indexer using its default configuration.
 
 ```shell
-juju deploy wazuh-indexer --channel=4/edge
+juju deploy wazuh-indexer --channel=4.11/edge
 ```
 
 ## Relations / Integrations

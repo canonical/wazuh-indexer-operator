@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
-import ipaddress
 from typing import Dict
 
 import requests
@@ -25,14 +24,10 @@ async def check_security_index_initialised(ops_test: OpsTest, unit_ip: str) -> b
     Returns:
         Whether The security index is initialised.
     """
-    unit_ip_address = ipaddress.ip_address(unit_ip)
-    url = f"https://{unit_ip}:9200/.opendistro_security"
-    if isinstance(unit_ip_address, ipaddress.IPv6Address):
-        url = f"https://[{str(unit_ip_address)}]:9200/.opendistro_security"
     response = await http_request(
         ops_test,
         "HEAD",
-        url,
+        f"https://{unit_ip}:9200/.opendistro_security",
         resp_status_code=True,
     )
     return response == 200
@@ -53,12 +48,7 @@ async def check_unit_tls_configured(ops_test: OpsTest, unit_ip: str, unit_name: 
     Returns:
         Whether the node is up: no TLS config issues and TLS on HTTP layer successful.
     """
-    unit_ip_address = ipaddress.ip_address(unit_ip)
-    url = f"https://{unit_ip}:9200"
-    if isinstance(unit_ip_address, ipaddress.IPv6Address):
-        url = f"https://[{str(unit_ip_address)}]:9200"
-
-    response = await http_request(ops_test, "GET", url)
+    response = await http_request(ops_test, "GET", f"https://{unit_ip}:9200")
     return response["name"] == unit_name
 
 

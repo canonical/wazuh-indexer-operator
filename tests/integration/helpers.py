@@ -37,6 +37,8 @@ IDLE_PERIOD = 75
 
 TARBALL_INSTALL_CERTS_DIR = "/etc/opensearch/config/certificates"
 
+CONFIG_OPTS = {"profile": "testing"}
+
 MODEL_CONFIG = {
     "logging-config": "<root>=INFO;unit=DEBUG",
     "update-status-hook-interval": "5m",
@@ -112,7 +114,7 @@ async def run_action(
                 continue
 
             ping = subprocess.call(
-                f"ping -c 1 {unit.ip}".split(),
+                f"nc -zv {unit.ip} 22".split(),
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
@@ -434,7 +436,8 @@ def opensearch_client(
         http_compress=True,
         sniff_on_start=True,  # sniff before doing anything
         sniff_on_connection_fail=True,  # refresh nodes after a node fails to respond
-        sniffer_timeout=60,  # and also every 60 seconds
+        sniffer_timeout=60.0,  # and also every 60 seconds
+        # sniff_timeout=5.0,  # and also every 60 seconds
         use_ssl=True,  # turn on ssl
         verify_certs=True,  # make sure we verify SSL certificates
         ssl_assert_hostname=False,
@@ -594,3 +597,44 @@ async def cluster_voting_config_exclusions(
         .get("cluster_coordination", {})
         .get("voting_config_exclusions", {})
     )
+
+
+async def service_start_time(ops_test: OpsTest, app: str, unit_id: int) -> float:
+    """Get the start date unix timestamp of the opensearch service."""
+    unit_name = f"{app}/{unit_id}"
+
+    boot_time_cmd = f"ssh {unit_name} awk '/btime/ {{print $2}}' /proc/stat"
+    _, unit_boot_time, _ = await ops_test.juju(*boot_time_cmd.split(), check=True)
+    unit_boot_time = int(unit_boot_time.strip())
+
+    active_since_cmd = f"exec --unit {unit_name} -- systemctl show snap.wazuh-indexer.daemon --property=ActiveEnterTimestampMonotonic --value"
+    _, active_time_since_boot, _ = await ops_test.juju(*active_since_cmd.split(), check=True)
+    active_time_since_boot = int(active_time_since_boot.strip()) / 1000000
+
+    return unit_boot_time + active_time_since_boot
+
+
+async def get_application_unit_ids_start_time(ops_test: OpsTest, app: str) -> Dict[int, float]:
+    """Get opensearch start time by unit."""
+    result = {}
+
+    for u_id in get_application_unit_ids(ops_test, app):
+        result[u_id] = await service_start_time(ops_test, app, u_id)
+    return result
+
+
+async def is_each_unit_restarted(
+    ops_test: OpsTest, app: str, previous_timestamps: Dict[int, float]
+) -> bool:
+    """Check if all units are restarted."""
+    try:
+        for attempt in Retrying(stop=stop_after_attempt(15), wait=wait_fixed(wait=5)):
+            with attempt:
+                for u_id, new_timestamp in (
+                    await get_application_unit_ids_start_time(ops_test, app)
+                ).items():
+                    if new_timestamp <= previous_timestamps[u_id]:
+                        raise Exception
+                return True
+    except RetryError:
+        return False

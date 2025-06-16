@@ -26,7 +26,11 @@ from charms.opensearch.v0.helper_charm import (
 from charms.opensearch.v0.helper_cluster import Node
 from charms.opensearch.v0.helper_conf_setter import YamlConfigSetter
 from charms.opensearch.v0.helper_http import error_http_retry_log
-from charms.opensearch.v0.helper_networking import get_host_ip, is_reachable
+from charms.opensearch.v0.helper_networking import (
+    get_host_ip,
+    get_host_public_ip,
+    is_reachable,
+)
 from charms.opensearch.v0.models import App, StartMode
 from charms.opensearch.v0.opensearch_exceptions import (
     OpenSearchCmdError,
@@ -164,7 +168,7 @@ class OpenSearchDistribution(ABC):
         """Check if OpenSearch is started."""
         reachable = is_reachable(self.host, self.port)
         if not reachable:
-            logger.error("Cannot connect to the OpenSearch server...")
+            logger.debug("Cannot connect to the OpenSearch server...")
 
         return reachable
 
@@ -197,15 +201,15 @@ class OpenSearchDistribution(ABC):
             return False
 
     def run_bin(self, bin_script_name: str, args: str = None, stdin: str = None) -> str:
-        """Run opensearch provided bin command, relative to OPENSEARCH_BIN.
+        """Run opensearch provided bin command, through the snap.
 
         Args:
             bin_script_name: opensearch script located in OPENSEARCH_BIN to be executed
             args: arguments passed to the script
             stdin: string input to be passed on the standard input of the subprocess.
         """
-        script_path = f"{self.paths.bin}/{bin_script_name}"
-        return self._run_cmd(script_path, args, stdin=stdin)
+        opensearch_command = f"wazuh-indexer.{bin_script_name}"
+        return self._run_cmd(opensearch_command, args, stdin=stdin)
 
     def run_script(self, script_name: str, args: str = None):
         """Run script provided by Opensearch in another directory, relative to OPENSEARCH_HOME."""
@@ -213,7 +217,7 @@ class OpenSearchDistribution(ABC):
         if not os.access(script_path, os.X_OK):
             self._run_cmd(f"chmod a+x {script_path}")
 
-        self._run_cmd(f"{script_path}", args)
+        self._run_cmd(f"snap run --shell wazuh-indexer.daemon -- {script_path}", args)
 
     def request(  # noqa
         self,
@@ -387,7 +391,7 @@ class OpenSearchDistribution(ABC):
             logger.debug(f"{command}:\n{output.stdout}")
 
             if output.returncode != 0:
-                logger.error(f"{command}:\n Stderr: {output.stderr}\n Stdout: {output.stdout}")
+                logger.debug(f"{command}:\n Stderr: {output.stderr}\n Stdout: {output.stdout}")
                 raise OpenSearchCmdError(output.stderr)
         except (TimeoutError, subprocess.TimeoutExpired) as e:
             raise OpenSearchCmdError(e)
@@ -434,6 +438,13 @@ class OpenSearchDistribution(ABC):
     def network_hosts(self) -> List[str]:
         """All HTTP/Transport hosts for the current node."""
         return [socket.getfqdn(), self.host]
+
+    @property
+    def public_address(self) -> str:
+        """Get the public bind address of this unit."""
+        return get_host_public_ip() or str(
+            self._charm.model.get_binding(self._peer_relation_name).network.ingress_address
+        )
 
     @property
     def port(self) -> int:
@@ -552,10 +563,8 @@ class OpenSearchDistribution(ABC):
         Raises:
             OpenSearchError if the GET request fails.
         """
-        try:
-            return self.request("GET", "/").get("version").get("number")
-        except OpenSearchHttpError:
-            logger.error(
-                "failed to get root endpoint, implying that this node is offline. Retry once node is online."
-            )
-            raise OpenSearchError()
+        # Will have a format similar to:
+        # Version: 2.14.0, Build: tar/.../2024-05-27T21:17:37.476666822Z, JVM: 21.0.2
+        output = self.run_bin("opensearch-bin", "--version 2>/dev/null")
+        logger.debug(f"version call output: {output}")
+        return output.split(", ")[0].split(": ")[1]

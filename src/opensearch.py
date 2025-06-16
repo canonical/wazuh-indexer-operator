@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Optional
 
 import requests
+from charms.opensearch.v0.constants_charm import OPENSEARCH_SNAP_REVISION
 from charms.opensearch.v0.helper_charm import run_cmd
 from charms.opensearch.v0.opensearch_distro import OpenSearchDistribution, Paths
 from charms.opensearch.v0.opensearch_exceptions import (
@@ -35,8 +36,6 @@ from tenacity import Retrying, retry, stop_after_attempt, wait_exponential, wait
 from utils import extract_tarball
 
 logger = logging.getLogger(__name__)
-
-SNAP_REVISION = "4"  # Keep in sync with `workload_version` file
 
 
 class OpenSearchSnap(OpenSearchDistribution):
@@ -64,13 +63,13 @@ class OpenSearchSnap(OpenSearchDistribution):
     def install(self):
         """Install/upgrade opensearch from the snapcraft store."""
         try:
-            self._opensearch.ensure(snap.SnapState.Latest, revision=SNAP_REVISION)
+            self._opensearch.ensure(snap.SnapState.Latest, revision=OPENSEARCH_SNAP_REVISION)
             self._opensearch.connect("process-control")
-            self._opensearch.connect("log-observe")
-            self._opensearch.connect("mount-observe")
-            self._opensearch.connect("system-observe")
-            self._opensearch.connect("sys-fs-cgroup-service")
-            self._opensearch.connect("shmem-perf-analyzer")
+            self._opensearch.connect("log-observe")  # required by wazuh
+            self._opensearch.connect("mount-observe")  # required by wazuh
+            self._opensearch.connect("system-observe")  # required by wazuh
+            self._opensearch.connect("sys-fs-cgroup-service")  # required by wazuh
+            self._opensearch.connect("shmem-perf-analyzer")  # required by wazuh
             if not self._opensearch.held:
                 # hold the snap in charm determined revision
                 self._opensearch.hold()
@@ -94,7 +93,7 @@ class OpenSearchSnap(OpenSearchDistribution):
         # Now, we must dig deeper into the actual status of systemd and the JVM process.
         # First, we want to make sure the process is not stopped, dead or zombie.
         try:
-            pid = run_cmd("lsof", args="-ti:9200").rstrip()
+            pid = run_cmd("lsof", args="-ti:9200").out.rstrip()
             if not pid or not os.path.exists(f"/proc/{pid}/stat"):
                 return False
             with open(f"/proc/{pid}/stat") as f:

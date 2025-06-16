@@ -13,7 +13,7 @@ jobs:
     uses: ./.github/workflows/ci.yaml
     secrets: inherit
     permissions:
-      contents: write  # Needed for Allure Report beta
+      contents: write  # Needed for Allure Report
 
   # release-libraries:
   #   name: Release libraries
@@ -23,7 +23,7 @@ jobs:
   #   timeout-minutes: 60
   #   steps:
   #     - name: Checkout
-  #       uses: actions/checkout@v4
+  #       uses: actions/checkout@v3
   #       with:
   #         fetch-depth: 0
   #     - name: Release charm libraries
@@ -38,9 +38,9 @@ jobs:
       - ci-tests
     uses: canonical/data-platform-workflows/.github/workflows/release_charm.yaml@v29.0.0
     with:
-      channel: latest/edge
+      channel: 4.11/edge
       artifact-prefix: ${{ needs.ci-tests.outputs.artifact-prefix }}
     secrets:
       charmhub-token: ${{ secrets.CHARMHUB_TOKEN }}
     permissions:
-      contents: write  # Needed to create GitHub release
+      contents: write  # Needed to create git tags
