@@ -6,7 +6,7 @@ resource "juju_application" "wazuh_indexer" {
   model = var.model
 
   charm {
-    name     = var.app_name
+    name     = "wazuh-indexer"
     channel  = var.channel
     revision = var.revision
     base     = var.base
