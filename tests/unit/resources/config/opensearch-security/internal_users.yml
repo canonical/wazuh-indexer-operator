@@ -9,12 +9,8 @@ _meta:
 
 ## Demo users
 
-kibanaserver:
-  hash: $2b$12$gPTfBoDoowvE6/.o2NdnuuDs1oRKolCIPQCkaaW8lyPURSnU/XTRC
-  reserved: false
-  description: Kibanaserver user
 admin:
-  hash: $2b$12$UjC9QHBn2ZVH3tFVRKOPyON.IhLy4WrByQJibbENZwzy/BmHbsB.i
+  hash: $2b$12$tTgE/8aOBSFmBnxErFY25ep6upbtF6XAl1V040vRbXPWxQkxnCbd.
   reserved: false
   backend_roles:
   - admin
@@ -22,3 +18,7 @@ admin:
   - security_rest_api_access
   - all_access
   description: Admin user
+kibanaserver:
+  hash: $2b$12$op0BEWWOqgV/Et6zYxq4.eRqy7o0fXzNafjwzxUb72L.vdRGpEkrq
+  reserved: false
+  description: Kibanaserver user
