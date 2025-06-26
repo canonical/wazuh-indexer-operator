@@ -38,7 +38,7 @@ jobs:
       - name: Run Vale tests
         uses: errata-ai/vale-action@v2.1.1
         with:
-          files: README
+          files: README.md
           fail_on_error: true
 
   unit-test:
