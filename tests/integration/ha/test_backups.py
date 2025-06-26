@@ -75,7 +75,7 @@ ALL_GROUPS = {
             pytest.mark.group(id=f"{cloud_name}-{deploy_type}"),
         ],
     )
-    for cloud_name in ["microceph", "aws", "azure"]
+    for cloud_name in ["microceph"]  # Wazuh is only supported on microcepth
     for deploy_type in ["large", "small"]
 }
 
