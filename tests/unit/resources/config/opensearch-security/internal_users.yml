@@ -10,11 +10,11 @@ _meta:
 ## Demo users
 
 kibanaserver:
-  hash: $2b$12$gPTfBoDoowvE6/.o2NdnuuDs1oRKolCIPQCkaaW8lyPURSnU/XTRC
+  hash: $2b$12$WGJWimUVRBHjWQ5n69WaReZAd1IebUNKxM/dqoNkxOd3pEeLBjQYm
   reserved: false
   description: Kibanaserver user
 admin:
-  hash: $2b$12$UjC9QHBn2ZVH3tFVRKOPyON.IhLy4WrByQJibbENZwzy/BmHbsB.i
+  hash: $2b$12$9vDjQ5K2mVHtsKNF98cxq.4yjlWgMXXW6QYVOUbSLGpZY1mutBWgq
   reserved: false
   backend_roles:
   - admin
