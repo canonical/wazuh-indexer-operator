@@ -79,7 +79,7 @@ async def test_create_relation(ops_test: OpsTest, application_charm, charm, seri
             application_name=DASHBOARDS_APP_NAME,
             channel="latest/edge",
             series=SERIES,
-            revision=3,
+            revision=14,
         ),
         ops_test.model.deploy(
             charm,
