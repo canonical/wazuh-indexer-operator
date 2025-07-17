@@ -4,6 +4,7 @@ environment:
 systems:
   - self-hosted-linux-amd64-noble-large
 execute: |
-  tox run -e integration -- "tests/integration/$TEST_MODULE" --model testing --alluredir="$SPREAD_TASK/allure-results" -m 'group(id="aws-small")'
+  true # Not supported by Wazuh
+  # tox run -e integration -- "tests/integration/$TEST_MODULE" --model testing --alluredir="$SPREAD_TASK/allure-results" -m 'group(id="aws-small")'
 artifacts:
   - allure-results
