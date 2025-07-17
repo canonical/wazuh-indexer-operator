@@ -498,7 +498,11 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
             app=deployment_desc.app,
             planned_units=self.charm.app.planned_units(),
             units=[format_unit_name(u, app=deployment_desc.app) for u in all_units(self.charm)],
-            roles=deployment_desc.config.roles,
+            roles=(
+                deployment_desc.config.roles
+                if deployment_desc.start == StartMode.WITH_PROVIDED_ROLES
+                else ClusterTopology.generated_roles()
+            ),
         )
         self._update_fleet(cluster_fleet_apps, current_app)
 
@@ -527,6 +531,7 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
     def _azure_credentials(
         self, deployment_desc: DeploymentDescription
     ) -> Optional[AzureRelDataCredentials]:
+        """Retrieve Azure storage credentials."""
         if deployment_desc.typ == DeploymentType.MAIN_ORCHESTRATOR:
             if not self.charm.model.get_relation(AZURE_RELATION):
                 return None
@@ -535,7 +540,7 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
             if not azure_storage_conn_info.get("storage-account"):
                 return None
 
-            # As the main orchestrator, this application must set the S3 information.
+            # As the main orchestrator, this application must set the azure information.
             storage_account = azure_storage_conn_info.get("storage-account")
             secret_key = azure_storage_conn_info.get("secret-key")
 
@@ -558,6 +563,7 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
     def _s3_credentials(
         self, deployment_desc: DeploymentDescription
     ) -> Optional[S3RelDataCredentials]:
+        """Retrieve S3 storage credentials."""
         if deployment_desc.typ == DeploymentType.MAIN_ORCHESTRATOR:
             if not self.charm.model.get_relation(S3_RELATION):
                 return None
@@ -673,10 +679,13 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
         ):
             if not self.charm.peers_data.get(Scope.APP, "security_index_initialised", False):
                 blocked_msg = f"Security index not initialized {message_suffix}."
-        elif (
-            ClusterTopology.data_role_in_cluster_fleet_apps(self.charm)
-            or deployment_desc.start == StartMode.WITH_GENERATED_ROLES
-        ):
+        elif ClusterTopology.data_role_in_cluster_fleet_apps(
+            self.charm
+        ) and self.charm.peers_data.get(Scope.APP, "security_index_initialised", False):
+            # Requirer units should start after all provider units have started,
+            # and only if the security index has already been initialized by a data node.
+            # This avoids a potential deadlock where both orchestrator and data units
+            # wait on each other to proceed.
             if not self.charm.is_every_unit_marked_as_started():
                 blocked_msg = f"Waiting for every unit {message_suffix} to start."
             elif not self.charm.secrets.get(Scope.APP, self.charm.secrets.password_key(COSUser)):
@@ -923,6 +932,16 @@ class OpenSearchPeerClusterRequirer(OpenSearchPeerClusterRelation):
 
         if self._error_set_from_providers(orchestrators, data, event.relation.id):
             # check errors sent by providers
+            # check if valid data is present if so update the seed hosts
+            if data.get("data"):
+                # In case the main orchestrator was scaled down to 0 and back
+                # we need to update the seed hosts with the data from the relation
+                # to pick up the new IPs and enable the data node see it
+                logger.debug(
+                    "Error from provider but valid data found in relation data, updating seed hosts."
+                )
+                data = self.peer_cm.rel_data_from_str(data["data"])
+                self.charm.opensearch_peer_cm.run_with_relation_data(data)
             return
 
         # fetch the success data
@@ -1149,8 +1168,14 @@ class OpenSearchPeerClusterRequirer(OpenSearchPeerClusterRelation):
         current_app = PeerClusterApp(
             app=deployment_desc.app,
             planned_units=self.charm.app.planned_units(),
-            units=[format_unit_name(u, app=deployment_desc.app) for u in all_units(self.charm)],
-            roles=deployment_desc.config.roles,
+            units=[
+                format_unit_name(unit, app=deployment_desc.app) for unit in all_units(self.charm)
+            ],
+            roles=(
+                deployment_desc.config.roles
+                if deployment_desc.start == StartMode.WITH_PROVIDED_ROLES
+                else ClusterTopology.generated_roles()
+            ),
         )
         self.put_in_rel(data={"app": current_app.to_str()}, rel_id=rel_id)
 
