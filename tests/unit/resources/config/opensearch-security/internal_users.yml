@@ -22,7 +22,3 @@ admin:
   - security_rest_api_access
   - all_access
   description: Admin user
-kibanaserver:
-  hash: $2b$12$op0BEWWOqgV/Et6zYxq4.eRqy7o0fXzNafjwzxUb72L.vdRGpEkrq
-  reserved: false
-  description: Kibanaserver user
