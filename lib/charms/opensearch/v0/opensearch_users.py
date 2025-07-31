@@ -331,7 +331,8 @@ class OpenSearchUserManager:
                     "backend_roles": [AdminUser],
                     "opendistro_security_roles": [
                         "security_rest_api_access",
-                        "all_access",
+                        # "all_access", #  Wazuh: would prevent password changes for admin
+                        #                  as all_access is reserved
                     ],
                     "description": "Admin user",
                 },
