@@ -1,4 +1,7 @@
+<!-- vale Canonical.007-Headings-sentence-case = NO -->
 # Wazuh Indexer Operator
+<!-- vale Canonical.007-Headings-sentence-case = YES -->
+
 [![Charmhub](https://charmhub.io/wazuh-indexer/badge.svg)](https://charmhub.io/wazuh-indexer)
 [![Release](https://github.com/canonical/wazuh-indexer-operator/actions/workflows/release.yaml/badge.svg)](https://github.com/canonical/wazuh-indexer-operator/actions/workflows/release.yaml)
 [![Tests](https://github.com/canonical/wazuh-indexer-operator/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/canonical/wazuh-indexer-operator/actions/workflows/ci.yaml)
@@ -52,14 +55,14 @@ sudo sysctl -p
 juju model-config --file=./cloudinit-userdata.yaml
 ```
 
-### Basic Usage
+### Basic usage
 To deploy a single unit of Wazuh Indexer using its default configuration.
 
 ```shell
 juju deploy wazuh-indexer --channel=4.11/edge
 ```
 
-## Relations / Integrations
+## Relations / integrations
 
 The relevant provided [relations](https://juju.is/docs/olm/relations) of Charmed Wazuh Indexer are:
 

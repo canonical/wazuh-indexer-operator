@@ -37,7 +37,7 @@ To upgrade your OpenSearch cluster, follow these steps:
 1. Collect all necessary pre-upgrade information. It will be required for the rollback (if requested). **Do NOT skip this step**.
 2. (optional) Scale-up: The new sacrificial unit will be the first to be updated, and will simplify the rollback procedure in case of the upgrade failure.
 3. Prepare the “Charmed OpenSearch” Juju application for the in-place upgrade. See the step description below for all the technical details the charm executes.
-4. Upgrade: Only one app unit will be upgraded once started. In case of failure, roll back with juju refresh.
+4. Upgrade: Only one app unit will be upgraded once started. In case of failure, roll back with `juju refresh`.
 5. Resume upgrade: The upgrade can be resumed if the upgrade of the first unit is successful. All units in an app will be executed sequentially from the highest to lowest unit number.
 6. (optional) Consider [rolling back](/t/14142) in case of disaster. Please [inform and include us](https://app.element.io/#/room/#charmhub-data-platform:ubuntu.com) in your case scenario troubleshooting to trace the source of the issue and prevent it in the future.
 7. (optional) Scale back: Remove no longer necessary units created in step 2 (if any).

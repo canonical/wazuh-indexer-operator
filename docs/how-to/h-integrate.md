@@ -10,7 +10,7 @@ This guide will walk you through integrating your charm with OpenSearch via the 
     - [Add the `opensearch_client` interface to your charm](#add-the-opensearch_client-interface-to-your-charm)
     - [Import the database interface libraries and define database event handlers](#import-the-database-interface-libraries-and-define-database-event-handlers)
     - [Integrate the client application with OpenSearch](#integrate-the-client-application-with-opensearch)
-  - [Integrate an application outside of juju with OpenSearch](#integrate-an-application-outside-of-juju-with-opensearch)
+  - [Integrate an application outside of Juju with OpenSearch](#integrate-an-application-outside-of-juju-with-opensearch)
     - [Deploy the `data-integrator` charm](#deploy-the-data-integrator-charm)
     - [Relate the `data-integrator` charm to an OpenSearch cluster](#relate-the-data-integrator-charm-to-an-opensearch-cluster)
     - [Remove the client integration](#remove-the-client-integration)
@@ -52,7 +52,7 @@ Then, instantiate the `OpenSearchRequires` class in your charm. The class takes 
 - `charm`: The charm instance
 - `relation_name`: The name of the relation to which to connect. This should match the name of the relation defined in the `metadata.yaml` file (`opensearch` in the example above).
 - `index`: The name of the index the client application will connect to.
-- `extra_user_roles`: A string containing the additional roles to assign to the user. This is optional and defualts to `None`.
+- `extra_user_roles`: A string containing the additional roles to assign to the user. This is optional and defaults to `None`.
 - `addional_secret_fields`: A list of additional secret fields to be shared with the client application. This is optional and defaults to an empty list.
 
 ```python
@@ -89,7 +89,7 @@ To remove the integration, run:
 juju remove-relation opensearch <application>
 ```
 
-## Integrate an application outside of juju with OpenSearch
+## Integrate an application outside of Juju with OpenSearch
 
 The `data-integrator` charm is a bare-bones charm that allows for central management of database users, providing support for different kinds of data platform products (e.g. MongoDB, MySQL, PostgreSQL, Kafka, etc) with a consistent, opinionated and robust user experience.
 

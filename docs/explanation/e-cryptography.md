@@ -15,13 +15,15 @@ Every artifact included in the snaps is verified against its SHA-256 or SHA-512 
 Charmed OpenSearch sources are stored in:
 
 * GitHub repositories for snaps, rocks and charms
-* LaunchPad repositories for the OpenSearch and OpenSearch Dashboards upstream fork used for building their respective distributions
+* Launchpad repositories for the OpenSearch and OpenSearch Dashboards upstream fork used for building their respective distributions
 
-### LaunchPad
+### Launchpad
 
 Distributions are built using private repositories only, hosted as part of the [SOSS namespace](https://launchpad.net/soss) to eventually integrate with Canonical’s standard process for fixing CVEs. Branches associated with releases are mirrored to a public repository, hosted in the [Data Platform namespace](https://launchpad.net/~data-platform) to also provide the community with the patched source code.
 
+<!-- vale Canonical.007-Headings-sentence-case = NO -->
 ### GitHub
+<!-- vale Canonical.007-Headings-sentence-case = YES -->
 
 All OpenSearch artifacts built by Canonical are published and released programmatically using release pipelines implemented via GitHub Actions. Distributions are published as both GitHub and LaunchPad releases via the [central-uploader repository](https://github.com/canonical/central-uploader), while charms, snaps and rocks are published using the workflows of their respective repositories.
 
@@ -59,7 +61,7 @@ Authentication to OpenSearch Dashboards is based on HTTP basic authentication wi
 
 The file needs to be readable and writable by root (as it is created by the charm) and readable by the snap_daemon user running the OpenSearch server snap commands.
 
-### OpenSearch Inter-node authentication
+### OpenSearch inter-node authentication
 
 Authentication among nodes is based on the HTTP basic authentication with username and password. Usernames and passwords are exchanged via peer relations.
 
