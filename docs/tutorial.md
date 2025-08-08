@@ -20,5 +20,5 @@ While this tutorial intends to guide you as you deploy Charmed OpenSearch for th
 | 3. [**Enable TLS encryption**](/t/9718) | Enable security in your deployment by integrating with a TLS certificates operator
 | 4. [**Integrate with a client application**](/t/9714) | Learn how to integrate a client app with OpenSearch and manage users
 | 5. [**Manage passwords**](/t/9728) | Learn about password management and rotation
-| 6. [**Scale horizontally**](/t/9720) | Scale your application by adding or removing juju units
-| 7. [**Clean up the environment**](/t/9726) | Remove your OpenSearch deployment and juju to free your machine's resources
+| 6. [**Scale horizontally**](/t/9720) | Scale your application by adding or removing Juju units
+| 7. [**Clean up the environment**](/t/9726) | Remove your OpenSearch deployment and Juju to free your machine's resources

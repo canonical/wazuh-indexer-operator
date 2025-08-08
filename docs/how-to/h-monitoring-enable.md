@@ -77,11 +77,11 @@ juju integrate grafana-agent-k8s opensearch:metrics-endpoint
 
 After this is complete, Grafana will show the new dashboard `Charmed OpenSearch` and will allow access to Charmed OpenSearch logs on Loki.
 
-### Extend to Large Deployments
+### Extend to large deployments
 
 Large deployments run across multiple juju applications. Connect all the units of each application to grafana-agent, as explained above, and the dashboard will be able to summarize the entire cluster.
 
-### Connect Multiple Clusters
+### Connect multiple clusters
 
 It is possible to have the same COS and dashboard for multiple deployments. The dashboard provides selectors to filter which cluster to watch at the time.
 

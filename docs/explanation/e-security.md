@@ -75,6 +75,6 @@ Charmed OpenSearch provides native integration with the [Canonical Observability
 
 For instructions, see the [How to integrate the Charmed OpenSearch deployment with COS](https://charmhub.io/opensearch/docs/h-monitoring) guide.
 
-## Additional Resources
+## Additional resources
 
 For details on the cryptography used by Charmed OpenSearch, see the [Cryptography](https://discourse.charmhub.io/t/charmed-opensearch-explanation-cryptography/17243) explanation page.
