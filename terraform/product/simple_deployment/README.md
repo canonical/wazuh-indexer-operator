@@ -1,11 +1,13 @@
-# Terraform module for opensearch-operator
+# Terraform module for OpenSearch operator
 
 This is a Terraform module facilitating the deployment of the OpenSearch charm with [Terraform juju provider](https://github.com/juju/terraform-provider-juju/). For more information, refer to the provider [documentation](https://registry.terraform.io/providers/juju/juju/latest/docs). 
 
 ## Requirements
 This module requires a `juju` model to be available. Refer to the [usage section](#usage) below for more details.
 
+<!-- vale Canonical.007-Headings-sentence-case = NO -->
 ## API
+<!-- vale Canonical.007-Headings-sentence-case = YES -->
 
 ### Inputs
 The module offers the following configurable inputs:

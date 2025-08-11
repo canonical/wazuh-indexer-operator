@@ -112,5 +112,5 @@ juju integrate self-signed-certificates wazuh-indexer
 **Note:** The TLS settings shown here are for self-signed-certificates, which are not recommended for production clusters. The TLS Certificates Operator offers a variety of configurations. Read more on the self-signed-certificates Operator [here](https://charmhub.io/self-signed-certificates).
 
 
-## Canonical Contributor Agreement
+## Canonical contributor agreement
 Canonical welcomes contributions to the Charmed Template Operator. Please check out our [contributor agreement](https://ubuntu.com/legal/contributors) if you're interested in contributing to the solution.
