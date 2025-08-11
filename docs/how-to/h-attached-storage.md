@@ -63,7 +63,7 @@ opensearch/2  opensearch-data/2  filesystem  opensearch-pool  2.0 GiB  attached
 For more details, [refer to Juju storage management documentation](https://juju.is/docs/juju/manage-storage).
 
 
-## Re-using Disks Use-Cases
+## Re-using disks use-cases
 
 OpenSearch does have a set of APIs and mechanisms to detect the existence of previous data on a given node and how to interact with that data. Most notable mechanisms are: (i) the `/_dangling` API, [as described in the upstream docs](https://opensearch.org/docs/latest/api-reference/index-apis/dangling-index/); and (ii) the `opensearch-node` CLI that allows operators to clean up portions of the metadata in the *used disk* before re-attaching to the cluster.
 
@@ -77,7 +77,7 @@ The following scenarios will be considered:
 
 The main concern in these cases is the management of the cluster metadata and the status of the previous indices.
 
-### Same Cluster Scenario
+### Same cluster scenario
 
 We can check which volumes are currently available to be reattached:
 ```
@@ -134,7 +134,7 @@ $ curl -sk -u admin:$PASSWORD https://$IP:9200/_cat/nodes
 10.81.173.167 29 98 16 3.75 5.59 4.99 dim cluster_manager,data,ingest,ml * opensearch-1.f1a
 ```
 
-### Different Cluster Scenarios
+### Different cluster scenarios
 
 In these cases, the cluster has been removed and the application will be redeployed reusing these disks in part or in total. In all of the following cases, the `opensearch-node` CLI will be needed to clean up portions of the metadata.
 
@@ -227,7 +227,7 @@ The cluster will be correctly form a new UUID. It is possible to also add more u
 
 
 
-## Dangling Indices
+## Dangling indices
 
 Now, the *used disk*  is successfully mounted to the cluster. The next step is to check for indices that  did not exist in the cluster. That can be done using the `/_dangling` API. To understand n more details how to list and recover dangling indices, refer to the [OpenSearch documentation on this API](https://opensearch.org/docs/latest/api-reference/index-apis/dangling-index/).
 

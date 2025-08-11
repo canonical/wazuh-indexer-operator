@@ -1,4 +1,6 @@
+<!-- vale Canonical.007-Headings-sentence-case = NO -->
 # Charmed Wazuh Indexer Documentation
+<!-- vale Canonical.007-Headings-sentence-case = YES -->
 The [Wazuh Indexer](https://documentation.wazuh.com/current/user-manual/wazuh-indexer/index.html) is a real-time,
 full-text search and analytics engine for security data based on [OpenSearch](http://opensearch.org/).
 Consequently, this charm is a Charmed [OpenSearch](https://github.com/canonical/opensearch-operator) fork.

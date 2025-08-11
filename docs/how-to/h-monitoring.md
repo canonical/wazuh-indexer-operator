@@ -16,11 +16,11 @@ Prometheus metrics are automatically installed as an OpenSearch plugin: [The Pro
 
 The meaning of the metrics collected can be found in the upstream documentation:
 
-* [indices stats metrics](https://opensearch.org/docs/latest/api-reference/index-apis/stats/)
-* [nodes_stats_metrics](https://opensearch.org/docs/latest/api-reference/nodes-apis/nodes-stats/)
-* [cluster_stats_metrics](https://opensearch.org/docs/latest/api-reference/cluster-api/cluster-stats/)
+* [`indices stats metrics`](https://opensearch.org/docs/latest/api-reference/index-apis/stats/)
+* [`nodes_stats_metrics`](https://opensearch.org/docs/latest/api-reference/nodes-apis/nodes-stats/)
+* [`cluster_stats_metrics`](https://opensearch.org/docs/latest/api-reference/cluster-api/cluster-stats/)
 
-## Alert Rules
+## Alert rules
 The charm deploys a pre-configured set of Prometheus alert rules by default.
 
 To ensure you are referencing the latest default alert rules, check the source file of alert definitions in the repository’s [prometheus_alerts.yaml](https://github.com/canonical/opensearch-operator/blob/2/edge/src/alert_rules/prometheus/prometheus_alerts.yaml) file.

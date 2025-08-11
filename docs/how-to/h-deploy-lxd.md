@@ -16,7 +16,9 @@ If you are a beginner to OpenSearch or Juju and are looking for a more comprehen
 
 ---
 
+<!-- vale Canonical.007-Headings-sentence-case = NO -->
 ## Disable IPv6 on LXD
+<!-- vale Canonical.007-Headings-sentence-case = YES -->
 
 Juju does not support IPv6 addresses with LXD. To set the network bridge to have no IPv6 addresses, run the following command after initializing LXD:
 ```

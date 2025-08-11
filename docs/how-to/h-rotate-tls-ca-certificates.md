@@ -32,7 +32,9 @@ This will automatically generate a new private key and regenerate the certificat
 
 For more information on the different approaches to update the key please refer to the ["Update keys" section of How to enable TLS encryption](https://charmhub.io/opensearch/docs/h-enable-tls#update-keys).
 
+<!-- vale Canonical.007-Headings-sentence-case = NO -->
 ## Rotation of CA certificates
+<!-- vale Canonical.007-Headings-sentence-case = YES -->
 
 The CA certificate is used to sign the TLS certificates. The CA certificate is provided to the OpenSearch cluster by the operator you are using to provide the certificates. In this section, we will describe the process of rotating the CA certificate using the [`self-signed-certificates` operator](https://charmhub.io/self-signed-certificates) and the [`manual-tls` operator](https://charmhub.io/manual-tls-certificates).
 

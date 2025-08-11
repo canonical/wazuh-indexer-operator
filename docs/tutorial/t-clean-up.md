@@ -53,7 +53,7 @@ To uninstall Juju, enter:
 sudo snap remove lxd --purge
 ```
 
-## Reset the Kernel parameters
+## Reset the kernel parameters
 >**Warning:** In the following command, use the values you saved during step 1 -> Get default values.
 
 If you did not save those values, use the second reset option.
