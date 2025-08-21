@@ -59,7 +59,7 @@ First, deploy [grafana-agent](https://charmhub.io/grafana-agent):
 juju deploy grafana-agent
 ```
 
-Then, integrate (previously known as "[relate](https://juju.is/docs/juju/integration)") it with Charmed OpenSearch:
+Then, integrate (previously known as "[relate](https://documentation.ubuntu.com/juju/3.6/reference/relation/)") it with Charmed OpenSearch:
 
 ```shell
 juju integrate grafana-agent grafana
