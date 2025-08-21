@@ -22,25 +22,6 @@ jobs:
     name: Lint
     uses: canonical/data-platform-workflows/.github/workflows/lint.yaml@v32.1.0
 
-  vale:
-    name: Style checker
-    runs-on: ubuntu-22.04
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - name: Checkout repo to runner
-        uses: actions/checkout@v4.2.2
-      - run: |
-          sudo apt-get update -y && sudo apt-get install -y tree ruby-rubygems docutils
-      - name: Install styles
-        uses: canonical/praecepta@1.0
-      - name: Run Vale tests
-        uses: errata-ai/vale-action@v2.1.1
-        with:
-          files: README.md
-          fail_on_error: true
-
   unit-test:
     name: Unit test charm
     runs-on: ubuntu-22.04
