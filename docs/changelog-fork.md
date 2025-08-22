@@ -10,7 +10,7 @@ Each revision is versioned by the date of the revision.
 
 ### Updated
 
-- Removed old documentation workflow in favor of an updated workflow to inject a custom wordlist and check links.
+- Removed old documentation workflow in favor of an updated workflow to inject a custom word list and check links.
 
 ## 2025-07-21
 
