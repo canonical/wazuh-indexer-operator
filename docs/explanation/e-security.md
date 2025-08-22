@@ -21,7 +21,7 @@ Charmed OpenSearch can be deployed on top of several clouds and virtualization l
 
 ### Juju
 
-Juju is the component responsible for orchestrating the entire lifecycle, from deployment to Day 2 operations. For more information on Juju security hardening, see the [Juju security](https://discourse.charmhub.io/t/juju-security/15684) page and the [How to harden your deployment](https://juju.is/docs/juju/harden-your-deployment) guide.
+Juju is the component responsible for orchestrating the entire lifecycle, from deployment to Day 2 operations. For more information on Juju security hardening, see the [Juju security](https://documentation.ubuntu.com/juju/latest/explanation/juju-security/index.html) page and the [How to harden your deployment](https://documentation.ubuntu.com/juju/latest/howto/manage-your-juju-deployment/harden-your-juju-deployment/) guide.
 
 #### Cloud credentials
 

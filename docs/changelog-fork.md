@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Each revision is versioned by the date of the revision.
 
+## 2025-08-22
+
+### Updated
+
+- Removed old documentation workflow in favor of an updated workflow to inject a custom word list and check links.
+
 ## 2025-07-21
 
 ### Added

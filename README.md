@@ -64,7 +64,7 @@ juju deploy wazuh-indexer --channel=4.11/edge
 
 ## Relations / integrations
 
-The relevant provided [relations](https://juju.is/docs/olm/relations) of Charmed Wazuh Indexer are:
+The relevant provided [relations](https://documentation.ubuntu.com/juju/3.6/reference/relation/) of Charmed Wazuh Indexer are:
 
 ### Client interface:
 

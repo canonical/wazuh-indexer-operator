@@ -275,7 +275,7 @@ Machine  State    Address         Inst id        Base          AZ  Message
 3        started  10.214.176.31   juju-0c35d2-3  ubuntu@22.04      Running
 ```
 
-Check the cluster is healthy. OpenSearch’s upstream documentation [suggests the following check](https://opensearch.org/docs/latest/install-and-configure/upgrade-opensearch/rolling-upgrade/):
+Check the cluster is healthy. OpenSearch’s upstream documentation [suggests the following check](https://docs.opensearch.org/latest/migrate-or-upgrade/rolling-upgrade/):
 
 ```shell
 GET "/_cluster/health?pretty"

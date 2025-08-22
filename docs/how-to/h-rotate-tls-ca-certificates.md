@@ -66,7 +66,7 @@ Where `leader_unit_IP` is the IP address of the leader unit and `port` is the po
 
 The `manual-tls operator` is used to manually provide the TLS certificates to the OpenSearch cluster. To rotate the CA certificate using the `manual-tls operator`, you will need to manually start the TLS certificate rotation process and sign them using the new CA certificate.
 
-If you still have the old CSR files, you can use them to start the rotation process. If you do not have the old CSR files, you can generate new CSRs by [manually rotating the TLS certificates]((#manually-rotate-the-tls-certificates)).
+If you still have the old CSR files, you can use them to start the rotation process. If you do not have the old CSR files, you can generate new CSRs by [manually rotating the TLS certificates](#manually-rotate-the-tls-certificates).
 
 To start the rotation process, sign the (old, or newly generated) CSRs using the new CA certificate and then proceed to provide the new certificates to the OpenSearch cluster using the `manual-tls operator`:
 

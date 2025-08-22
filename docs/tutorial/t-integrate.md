@@ -2,7 +2,7 @@
 
 # Integrate with a client application
 
-[Integrations](https://juju.is/docs/sdk/integration) (also known as "relations") are the easiest way to connect to Charmed OpenSearch. Integrations automatically create a username, password, and database for the desired user/application, and define access permissions.
+[Integrations](https://documentation.ubuntu.com/juju/3.6/reference/relation/) (also known as "relations") are the easiest way to connect to Charmed OpenSearch. Integrations automatically create a username, password, and database for the desired user/application, and define access permissions.
 
 ## Summary
 - [Deploy the Data Integrator charm](#heading--deploy-data-integrator)
@@ -141,7 +141,7 @@ Save the CA certificate (value of `tls-ca` in the previous response), username, 
 
 <a href="#heading--indices"><h2 id="heading--indices"> Create and access OpenSearch indices</h2></a>
 
-Before connecting to OpenSearch, it is mandatory that you [enable TLS on this cluster](./4-enable-tls.md), following the previous step in the tutorial.
+Before connecting to OpenSearch, it is mandatory that you [enable TLS on this cluster](t-enable-tls.md), following the previous step in the tutorial.
 
 You can access the OpenSearch REST API in any way you prefer. In this tutorial, we will use `curl`. Get the IP of an OpenSearch node from the output of `juju status` (any of the nodes should work fine), and store the CA certificate in a local file (e.g. `demo-ca.pem`). Then, run the following command to connect to the OpenSearch cluster:
 
