@@ -67,3 +67,57 @@ module "opensearch" {
   model = data.juju_model.opensearch.name
 }
 ```
+
+<!-- BEGIN_TF_DOCS -->
+## Requirements
+
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.6 |
+| <a name="requirement_juju"></a> [juju](#requirement\_juju) | >= 0.20.0 |
+
+## Providers
+
+| Name | Version |
+|------|---------|
+| <a name="provider_juju"></a> [juju](#provider\_juju) | >= 0.20.0 |
+
+## Modules
+
+No modules.
+
+## Resources
+
+| Name | Type |
+|------|------|
+| [juju_application.opensearch](https://registry.terraform.io/providers/juju/juju/latest/docs/resources/application) | resource |
+| [juju_application.self-signed-certificates](https://registry.terraform.io/providers/juju/juju/latest/docs/resources/application) | resource |
+| [juju_integration.tls-opensearch-same-model_integration](https://registry.terraform.io/providers/juju/juju/latest/docs/resources/integration) | resource |
+
+## Inputs
+
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| <a name="input_app_name"></a> [app\_name](#input\_app\_name) | Application name | `string` | `"opensearch"` | no |
+| <a name="input_base"></a> [base](#input\_base) | Charm base (old name: series) | `string` | `"ubuntu@22.04"` | no |
+| <a name="input_channel"></a> [channel](#input\_channel) | Charm channel | `string` | `"2/stable"` | no |
+| <a name="input_config"></a> [config](#input\_config) | Map of charm configuration options | `map(string)` | <pre>{<br/>  "profile": "testing"<br/>}</pre> | no |
+| <a name="input_constraints"></a> [constraints](#input\_constraints) | String listing constraints for this application | `string` | `"arch=amd64"` | no |
+| <a name="input_endpoint_bindings"></a> [endpoint\_bindings](#input\_endpoint\_bindings) | Map of endpoint bindings | `map(string)` | `{}` | no |
+| <a name="input_expose"></a> [expose](#input\_expose) | Expose the application for external access. | `bool` | `false` | no |
+| <a name="input_machines"></a> [machines](#input\_machines) | List of machines for placement | `list(string)` | `[]` | no |
+| <a name="input_main_model"></a> [main\_model](#input\_main\_model) | Model name of the main orchestrator (to detect same-model apps) | `string` | `null` | no |
+| <a name="input_model"></a> [model](#input\_model) | Model name | `string` | n/a | yes |
+| <a name="input_revision"></a> [revision](#input\_revision) | Charm revision | `number` | `null` | no |
+| <a name="input_self-signed-certificates"></a> [self-signed-certificates](#input\_self-signed-certificates) | Configuration for the self-signed-certificates app | <pre>object({<br/>    channel     = optional(string, "latest/stable")<br/>    revision    = optional(string, null)<br/>    base        = optional(string, "ubuntu@22.04")<br/>    constraints = optional(string, "arch=amd64")<br/>    machines    = optional(list(string), [])<br/>    config      = optional(map(string), { "ca-common-name" : "CA" })<br/>  })</pre> | `{}` | no |
+| <a name="input_storage"></a> [storage](#input\_storage) | Map of storage used by the application | `map(string)` | `{}` | no |
+| <a name="input_units"></a> [units](#input\_units) | Charm units | `number` | `3` | no |
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| <a name="output_app_names"></a> [app\_names](#output\_app\_names) | Output of all deployed application names. |
+| <a name="output_provides"></a> [provides](#output\_provides) | Map of all "provides" endpoints |
+| <a name="output_requires"></a> [requires](#output\_requires) | Map of all "requires" endpoints |
+<!-- END_TF_DOCS -->
