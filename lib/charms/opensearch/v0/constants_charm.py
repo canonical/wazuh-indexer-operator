@@ -84,6 +84,7 @@ BackupDeferRelBrokenAsInProgress = "Backup service cannot be stopped: backup in 
 PClusterWaitingForFailoverPromotion = (
     "Main-cluster-orchestrator removed, waiting for failover promotion."
 )
+PClusterMainIsRequirer = "Main orchestrator cannot be a requirer"
 
 
 # Maintenance statuses

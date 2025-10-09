@@ -25,6 +25,7 @@ from charms.opensearch.v0.constants_charm import (
     OpenSearchSystemUsers,
     OpenSearchUsers,
     PClusterNoDataNode,
+    PClusterNoRelation,
     PeerClusterRelationName,
     PeerRelationName,
     PluginConfigChangeError,
@@ -388,6 +389,7 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
 
         # apply the directives computed and emitted by the peer cluster manager
         if not self._apply_peer_cm_directives_and_check_if_can_start():
+            logger.debug("cannot start peer cm had a blocking directive")
             event.defer()
             return
 
@@ -407,6 +409,8 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
         self.status.clear(AdminUserNotConfigured)
         self.status.clear(TLSNotFullyConfigured)
         self.status.clear(TLSRelationMissing)
+        if self.unit.is_leader():
+            self.status.clear(PClusterNoRelation, app=True)
 
         # Since system users are initialized, we should take them to local internal_users.yml
         # Leader should be done already
@@ -512,12 +516,12 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
             return False
 
         # check possibility to start
+        logger.debug("Checking if cluster can start with deploy desc: %s", deployment_desc)
         if self.opensearch_peer_cm.can_start(deployment_desc):
             try:
                 self._get_nodes(False)
             except OpenSearchHttpError:
                 return False
-
             return True
 
         if self.unit.is_leader():
@@ -672,7 +676,11 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
                         self.peers_data.delete(Scope.APP, "bootstrapped")
                 if self.opensearch_peer_cm.is_provider():
                     self.peer_cluster_provider.refresh_relation_data(event, can_defer=False)
-                if self.opensearch_peer_cm.is_consumer():
+                    logger.debug("demoting main orchestrator")
+                    self.opensearch_peer_cm.demote_deployment_type()
+                    self.peers_data.delete(Scope.APP, "orchestrators")
+                    self.peer_cluster_provider.clean_all_relation_data()
+                elif self.opensearch_peer_cm.is_consumer():
                     self.peer_cluster_requirer.refresh_requirer_relation_data()
 
         # we attempt to flush the translog to disk
@@ -1123,14 +1131,15 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
 
         self.peers_data.delete(Scope.UNIT, "started")
 
+        if not self._can_service_start(event.is_first_data_node):
+            logger.info("Conditions not met to start opensearch. Will retry next event.")
+            event.defer()
+            return
+
         if event.ignore_lock:
             # Only used for force upgrades and starting 1 data node on a large deployment
             # where the main orchestrator has cluster-manager only nodes
             logger.debug("Starting without lock")
-        elif not self._can_service_start(event.is_first_data_node):
-            logger.info("Conditions not met to start opensearch. Will retry next event.")
-            event.defer()
-            return
         elif not self.node_lock.acquired:
             logger.debug("Lock to start opensearch not acquired. Will retry next event")
             event.defer()
