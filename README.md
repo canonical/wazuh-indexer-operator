@@ -23,14 +23,14 @@ The Operator in this repository is a Python project installing and managing Wazu
 
 ## Usage
 
-Bootstrap a [lxd controller](https://juju.is/docs/olm/lxd#heading--create-a-controller) to juju and create a model:
+Bootstrap a [lxd controller](https://documentation.ubuntu.com/juju/3.6/reference/cloud/list-of-supported-clouds/the-lxd-cloud-and-juju/) to juju and create a model:
 
 ```shell
 juju add-model wazuh-indexer
 ```
 
 Configure the system settings required by [OpenSearch](https://opensearch.org/docs/latest/install-and-configure/install-opensearch/index/),
-we'll do that by creating and setting a [`cloudinit-userdata.yaml` file](https://juju.is/docs/olm/juju-model-config) on the model. 
+we'll do that by creating and setting a [`cloudinit-userdata.yaml` file](https://documentation.ubuntu.com/juju/3.6/reference/configuration/list-of-model-configuration-keys/#cloudinit-userdata) on the model. 
 As well as setting some kernel settings on the host machine.
 ```
 cat <<EOF > cloudinit-userdata.yaml
