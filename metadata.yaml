@@ -12,9 +12,10 @@ summary: |
   The Charmed Wazuh Indexer operator
 link:
   contact: https://launchpad.net/~canonical-is-devops
-  documentation: https://discourse.charmhub.io/t/wazuh-indexer-documentation-overview/16071
   issues: https://github.com/canonical/wazuh-indexer-operator/issues
   source: https://github.com/canonical/wazuh-indexer-operator
+
+docs: https://discourse.charmhub.io/t/wazuh-indexer-documentation-overview/16071
 
 peers:
   opensearch-peers:
