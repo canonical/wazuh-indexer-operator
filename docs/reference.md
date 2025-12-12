@@ -12,10 +12,6 @@ Additionally, you can find automatically generated metadata in the following tab
 * [Actions]
 
 <!-- Links -->
-[Release notes]: /t/17209
-[System requirements]: /t/14565
-[Software testing]: /t/14109
-
 [Integrations]: https://charmhub.io/opensearch/integrations
 [Configurations]: https://charmhub.io/opensearch/configurations
 [Actions]: https://charmhub.io/opensearch/actions
