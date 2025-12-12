@@ -127,7 +127,8 @@ prepare: |
   # Install charmcraft & pipx (on lxd-vm backend)
   concierge prepare --trace
 
-  pipx install tox poetry
+  pipx install tox
+  pipx install poetry
 prepare-each: |
   cd "$SPREAD_PATH"
   if [[ $SPREAD_VARIANT == *"juju29"* ]]
