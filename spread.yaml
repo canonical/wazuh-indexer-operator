@@ -80,7 +80,7 @@ backends:
       EOF
 
       sudo systemctl daemon-reload
-      sudo systemctl start ssh
+      sudo systemctl restart ssh
 
       # Needed for IS-hosted runners
       sudo passwd --delete ubuntu
