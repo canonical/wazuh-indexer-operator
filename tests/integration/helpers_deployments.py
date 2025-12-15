@@ -396,6 +396,11 @@ async def wait_until(  # noqa: C901
                 f"juju status --model {ops_test.model.info.name}", shell=True
             ).decode("utf-8")
         )
+        logger.info(
+            subprocess.check_output(
+                "./tests/integration/lxc-snap-base-workaround.sh", shell=True
+            ).decode("utf-8")
+        )
         for attempt in Retrying(stop=stop_after_delay(timeout), wait=wait_fixed(10)):
             with attempt:
                 logger.info(f"\n\n\n{now()} -- Waiting for model...")
