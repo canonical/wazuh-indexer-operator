@@ -105,23 +105,23 @@ jobs:
 #           sg 'lxd' -c "lxc network set lxdbr0 ipv6.address none"
 #           sudo iptables -F FORWARD
 #           sudo iptables -P FORWARD ACCEPT
-# 
+#
 #       - name: Juju setup
 #         run: |
 #           mkdir -p ~/.local/share/juju
 #           sg 'lxd' -c "juju bootstrap 'localhost' --config model-logs-size=10G"
 #           juju model-defaults logging-config='<root>=INFO; unit=DEBUG'
 #           juju add-model test
-# 
+#
 #           sudo tee -a /etc/sysctl.conf > /dev/null <<EOT
 #           vm.max_map_count=262144
 #           vm.swappiness=0
 #           net.ipv4.tcp_retries2=5
 #           fs.file-max=1048576
 #           EOT
-# 
+#
 #           sudo sysctl -p
-# 
+#
 #       - name: Terraform deploy - simple deployments product module
 #         run: |
 #           pushd ./terraform/product/
@@ -130,7 +130,7 @@ jobs:
 #             -var='backups-integrator={"config": {"bucket": "test"}}' \
 #             -auto-approve
 #           popd
-# 
+#
 #       - name: Wait for juju deployment
 #         run: |
 #           # TODO - remove this when juju wait-for starts reporting the up to date status
