@@ -393,7 +393,7 @@ async def wait_until(  # noqa: C901
         logger.info("\n\n\n")
         logger.info(
             subprocess.check_output(
-                f"./tests/integration/lxc-snap-base-workaround.sh", shell=True
+                "./tests/integration/lxc-snap-base-workaround.sh", shell=True
             ).decode("utf-8")
         )
         logger.info(
