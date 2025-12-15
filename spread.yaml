@@ -101,9 +101,9 @@ backends:
       # To install pipx on self-hosted runners
       CONCIERGE_EXTRA_DEBS: pipx
     systems:
-      - self-hosted-linux-amd64-jammy-large:
+      - self-hosted-linux-amd64-noble-large:
           username: ubuntu
-      - self-hosted-linux-amd64-jammy-xlarge:
+      - self-hosted-linux-amd64-noble-xlarge:
           username: ubuntu
 
 suites:
