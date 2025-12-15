@@ -10,7 +10,7 @@ sleep 30
 
 for m in $(lxc list -cn -fcsv); do
         echo "WORKAROUND: applying to $m"
-        lxc shell $m -- systemctl stop snapd.seeded.service
+        lxc shell "$m" -- systemctl stop snapd.seeded.service
 done
 
 echo "WORKAROUND: completed (sleep 30)"
