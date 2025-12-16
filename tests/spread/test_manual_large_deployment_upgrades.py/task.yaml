@@ -2,7 +2,7 @@ summary: test_manual_large_deployment_upgrades.py
 environment:
   TEST_MODULE: upgrades/test_manual_large_deployment_upgrades.py
 systems:
-  - self-hosted-linux-amd64-noble-xlarge
+  - self-hosted-linux-amd64-noble-xlarge.no-large-deployment-for-wazuh
 execute: |
   tox run -e integration -- "tests/integration/$TEST_MODULE" --model testing --alluredir="$SPREAD_TASK/allure-results"
 artifacts:

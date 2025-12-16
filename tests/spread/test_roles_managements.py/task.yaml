@@ -2,7 +2,7 @@ summary: test_roles_managements.py
 environment:
   TEST_MODULE: ha/test_roles_managements.py
 systems:
-  - self-hosted-linux-amd64-noble-large
+  - self-hosted-linux-amd64-noble-large.role-changes-and-cluster-name-change-is-no-supported-for-wazuh
 execute: |
   tox run -e integration -- "tests/integration/$TEST_MODULE" --model testing --alluredir="$SPREAD_TASK/allure-results"
 artifacts:

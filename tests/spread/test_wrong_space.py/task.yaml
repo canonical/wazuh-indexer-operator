@@ -2,7 +2,7 @@ summary: test_wrong_space.py
 environment:
   TEST_MODULE: spaces/test_wrong_space.py
 systems:
-  - self-hosted-linux-amd64-noble-large
+  - self-hosted-linux-amd64-noble-large.disabled-for-wazuh-until-lxd-snap-kernel-6.14-bug-is-fixed
 execute: |
   tox run -e integration -- "tests/integration/$TEST_MODULE" --model testing --alluredir="$SPREAD_TASK/allure-results"
 artifacts:
