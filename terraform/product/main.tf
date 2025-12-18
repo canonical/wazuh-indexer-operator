@@ -2,7 +2,7 @@
 # See LICENSE file for licensing details.
 
 data "juju_model" "wazuh_indexer" {
-  name = var.model
+  uuid = var.model_uuid
 }
 
 module "wazuh_indexer" {
@@ -11,15 +11,15 @@ module "wazuh_indexer" {
   channel     = var.wazuh_indexer.channel
   config      = var.wazuh_indexer.config
   constraints = var.wazuh_indexer.constraints
-  model       = data.juju_model.wazuh_indexer.name
+  model_uuid  = data.juju_model.wazuh_indexer.uuid
   revision    = var.wazuh_indexer.revision
   base        = var.wazuh_indexer.base
   units       = var.wazuh_indexer.units
 }
 
 resource "juju_application" "sysconfig" {
-  name  = var.sysconfig.app_name
-  model = data.juju_model.wazuh_indexer.name
+  name       = var.sysconfig.app_name
+  model_uuid = data.juju_model.wazuh_indexer.uuid
 
   charm {
     name     = "sysconfig"
@@ -33,7 +33,7 @@ resource "juju_application" "sysconfig" {
 }
 
 resource "juju_integration" "wazuh_indexer_sysconfig" {
-  model = data.juju_model.wazuh_indexer.name
+  model_uuid = data.juju_model.wazuh_indexer.uuid
 
   application {
     name     = module.wazuh_indexer.app_name
@@ -46,9 +46,9 @@ resource "juju_integration" "wazuh_indexer_sysconfig" {
 }
 
 resource "juju_application" "grafana_agent" {
-  name  = var.grafana_agent.app_name
-  model = data.juju_model.wazuh_indexer.name
-  trust = true
+  name       = var.grafana_agent.app_name
+  model_uuid = data.juju_model.wazuh_indexer.uuid
+  trust      = true
 
   charm {
     name     = "grafana-agent"
@@ -59,7 +59,7 @@ resource "juju_application" "grafana_agent" {
 }
 
 resource "juju_integration" "grafana_agent_indexer" {
-  model = data.juju_model.wazuh_indexer.name
+  model_uuid = data.juju_model.wazuh_indexer.uuid
 
   application {
     name     = module.wazuh_indexer.app_name
