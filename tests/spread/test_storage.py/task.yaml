@@ -2,7 +2,7 @@ summary: test_storage.py
 environment:
   TEST_MODULE: ha/test_storage.py
 systems:
-  - self-hosted-linux-amd64-noble-xlarge.disabled-for-wazuh-until-lxd-snap-kernel-6.14-bug-is-fixed
+  - self-hosted-linux-amd64-noble-xlarge
 execute: |
   tox run -e integration -- "tests/integration/$TEST_MODULE" --model testing --alluredir="$SPREAD_TASK/allure-results"
 artifacts:

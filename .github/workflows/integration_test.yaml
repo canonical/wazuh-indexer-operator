@@ -19,19 +19,24 @@ jobs:
         uses: actions/checkout@v4
       - name: Set up environment
         run: |
-          sudo snap install charmcraft --classic --channel 3.x/stable
+          sudo snap install go --classic
+          go install github.com/snapcore/spread/cmd/spread@latest
           pipx install tox poetry
       - name: Collect spread jobs
         id: collect-jobs
         shell: python
         run: |
           import json
+          import pathlib
           import os
           import subprocess
 
           spread_jobs = (
               subprocess.run(
-                  ["charmcraft", "test", "--list", "github-ci"], capture_output=True, check=True, text=True
+                  [pathlib.Path.home() / "go/bin/spread", "-list", "github-ci"],
+                  capture_output=True,
+                  check=True,
+                  text=True,
               )
               .stdout.strip()
               .split("\n")
@@ -95,7 +100,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Set up environment
         timeout-minutes: 5
-        run: sudo snap install charmcraft --classic --channel 3.x/stable
+        run: sudo snap install charmcraft --classic
       # TODO: remove when https://github.com/canonical/charmcraft/issues/2105 and
       # https://github.com/canonical/charmcraft/issues/2130 fixed
       - run: |
@@ -107,6 +112,11 @@ jobs:
         with:
           pattern: ${{ inputs.artifact-prefix }}-*
           merge-multiple: true
+      # TODO Remove pinned image when problem is resolved on jammy
+      - name: Pin lxc image for jammy
+        run: |
+          sudo lxc image copy ubuntu:568f69ff1166 local:
+          sudo lxc image alias create "juju/ubuntu@22.04/amd64" 568f69ff1166
       - name: Run spread job
         timeout-minutes: 180
         id: spread
@@ -127,7 +137,7 @@ jobs:
         # Only upload results from one spread system & one spread variant
         # Allure can only process one result per pytest test ID. If parameterization is done via
         # spread instead of pytest, there will be overlapping pytest test IDs.
-        if: ${{ (success() || (failure() && steps.spread.outcome == 'failure')) && startsWith(matrix.job.spread_job, 'github-ci:') && endsWith(matrix.job.spread_job, ':ubuntu22') && github.event_name == 'schedule' && github.run_attempt == '1' }}
+        if: ${{ (success() || (failure() && steps.spread.outcome == 'failure')) && startsWith(matrix.job.spread_job, 'github-ci:') && endsWith(matrix.job.spread_job, ':ubuntu24') && github.event_name == 'schedule' && github.run_attempt == '1' }}
         uses: actions/upload-artifact@v4
         with:
           name: allure-results-integration-test-${{ matrix.job.name_in_artifact }}

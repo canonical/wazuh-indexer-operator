@@ -17,17 +17,16 @@ from .helpers import assert_upgrade_to_local, refresh
 logger = logging.getLogger(__name__)
 
 
-OPENSEARCH_ORIGINAL_CHARM_NAME = "wazuh-indexer"
-OPENSEARCH_CHANNEL = "4.11/edge"
-OPENSEARCH_STABLE_CHANNEL = "4.11/stable"
-
+OPENSEARCH_ORIGINAL_CHARM_NAME = "opensearch"
+OPENSEARCH_CHANNEL = "2/edge"
+OPENSEARCH_STABLE_CHANNEL = "2/stable"
 
 PROFILES_REVISION = 185
-STARTING_VERSION = "4.11.0"
-
+STARTING_VERSION = "2.17.0"
 
 VERSION_TO_REVISION = {
-    STARTING_VERSION: 5,
+    STARTING_VERSION: 168,
+    "2.18.0": 209,
 }
 
 

@@ -66,31 +66,31 @@ juju deploy wazuh-indexer --channel=4.11/edge
 
 The relevant provided [relations](https://documentation.ubuntu.com/juju/3.6/reference/relation/) of Charmed Wazuh Indexer are:
 
-### Client interface:
+### Client interface
 
 To connect to the Charmed Wazuh Indexer Operator and exchange data, relate to the `opensearch-client` endpoint:
 
 ```shell
-juju deploy data-integrator --channel=2/edge
-juju integrate wazuh-indexer data-integrator
+juju deploy data-integrator --channel=latest/stable
+juju integrate opensearch data-integrator
 ```
 
-### Large deployments:
-Charmed Wazuh Indexer also allows to form large clusters or join an existing deployment, through the relations:
+### Large deployments
+Charmed OpenSearch also allows to form large clusters or join an existing deployment, through the relations:
 - `peer-cluster`
 - `peer-cluster-orchestrator`
 ```
 juju integrate main:peer-cluster-orchestrator data-hot:peer-cluster
 ```
 
-## TLS:
+## TLS
 
 The Charmed Wazuh Indexer Operator also supports TLS encryption as a first class citizen, on both the HTTP and Transport layers. 
 TLS is enabled by default and is a requirement for the charm to start.
 
 The charm relies on the `tls-certificates` interface.
 
-#### 1. Self-signed certificates:
+#### Example with Self-signed certificates
 ```shell
 # Deploy the self-signed TLS Certificates Operator.
 juju deploy self-signed-certificates --channel=latest/stable

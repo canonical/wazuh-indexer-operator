@@ -8,13 +8,16 @@ This module manages OpenSearch keystore access and lifecycle.
 import functools
 import logging
 import os
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from charms.opensearch.v0.opensearch_base_charm import OpenSearchBaseCharm
+from charms.opensearch.v0.opensearch_distro import OpenSearchDistribution
 from charms.opensearch.v0.opensearch_exceptions import (
     OpenSearchCmdError,
-    OpenSearchError,
+    OpenSearchHttpError,
 )
+from ops import EventBase, EventSource, Object
 
 # The unique Charmhub library identifier, never change it
 LIBID = "de98efa151804b699d5d6128fa100807"
@@ -30,121 +33,94 @@ LIBPATCH = 1
 logger = logging.getLogger(__name__)
 
 
-class OpenSearchKeystoreError(OpenSearchError):
-    """Exception thrown when an opensearch keystore is invalid."""
+class ReloadKeystoreEvent(EventBase):
+    """Event to signal that the keystore should be reloaded."""
 
 
-class OpenSearchKeystoreNotReadyError(OpenSearchKeystoreError):
-    """Exception thrown when the keystore is not ready yet."""
-
-
-class Keystore(ABC):
-    """Abstract class that represents the keystore."""
-
-    def __init__(self, charm, password: str = None):
-        """Creates the keystore manager class."""
-        self._charm = charm
-        self._opensearch = charm.opensearch
-        self._keystore = "keystore"
-        self._keystore_path = ""
-
-    @abstractmethod
-    def update(self, entries: Dict[str, Any]) -> None:
-        """Updates the keystore value (adding or removing) and reload.
-
-        Raises:
-            OpenSearchHttpError: If the reload fails.
-        """
-        ...
-
-    @functools.cached_property
-    @abstractmethod
-    def list(self) -> List[str]:
-        """Lists the keys available in opensearch's keystore."""
-        ...
-
-    def _clean_cache_if_needed(self):
-        if self.list:
-            del self.list
-
-    @abstractmethod
-    def reload_keystore(self) -> None:
-        """Updates the keystore value (adding or removing) and reload.
-
-        Raises:
-            OpenSearchHttpError: If the reload fails.
-        """
-        ...
-
-
-class OpenSearchKeystore(Keystore):
+class OpenSearchKeystore:
     """Manages keystore."""
 
-    def __init__(self, charm):
+    def __init__(self, opensearch: "OpenSearchDistribution"):
         """Creates the keystore manager class."""
-        super().__init__(charm)
+        self._opensearch = opensearch
         self._keystore = "keystore"
-        self._keystore_path = f"{charm.opensearch.paths.conf}/opensearch.keystore"
+        self._keystore_path = f"{opensearch.paths.conf}/opensearch.keystore"
 
-    def update(self, entries: Dict[str, Any]) -> None:
-        """Updates the keystore value (adding or removing) and reload.
-
-        Raises:
-            OpenSearchHttpError: If the reload fails.
-        """
-        if not os.path.exists(self._keystore_path):
-            raise OpenSearchKeystoreNotReadyError()
-
-        if not entries:
+    def _create_if_needed(self) -> None:
+        """Creates the keystore if not already present."""
+        if os.path.exists(self._keystore_path):
             return
 
-        for key, value in entries.items():
-            if value:
-                self._add(key, value)
-            else:
-                self._delete(key)
+        self._opensearch.run_bin("keystore", "create")
 
-    @functools.cached_property
-    def list(self) -> List[str]:
-        """Lists the keys available in opensearch's keystore."""
-        if not os.path.exists(self._keystore_path):
-            raise OpenSearchKeystoreNotReadyError()
+    def put_entries(self, entries: dict[str, str]) -> None:
+        """Add new key/val entries on the keystore."""
+        for key, val in entries.items():
+            # adding the '--force' flag will create the keystore if not present
+            self._opensearch.run_bin("keystore", f"add {key} --force", stdin=val)
+
+    def put_file_entry(self, key: str, filename: str) -> None:
+        """Add a new file entry in the keystore."""
+        self._opensearch.run_bin("keystore", f"add-file {key} {filename} --force")
+
+    def remove_entries(self, keys: list[str]) -> None:
+        """Remove entries from the keystore."""
+        self._create_if_needed()
+
+        for key in keys:
+            if key == "keystore.seed":
+                continue
+
+            try:
+                self._opensearch.run_bin("keystore", f"remove {key}")
+            except OpenSearchCmdError as e:
+                if e.err and "does not exist in the keystore" in e.err:
+                    continue
+                raise
+
+    def list_keys(self) -> list[str]:
+        """List all keys in the keystore."""
+        self._create_if_needed()
+        return self._opensearch.run_bin("keystore", "list").splitlines()
+
+    def reload(self) -> bool:
+        """Reload the keystore."""
+        self._create_if_needed()
+        self._opensearch.run_bin("keystore", "upgrade")
+
+        if not self._opensearch.is_started():
+            # service not running, settings will be picked up at startup
+            logger.debug("Opensearch not running. Keystore settings will be loaded at start time.")
+            return True
+
         try:
-            return self._opensearch.run_bin(self._keystore, "list").split("\n")
-        except OpenSearchCmdError as e:
-            raise OpenSearchKeystoreError(str(e))
+            response = self._opensearch.request("POST", "_nodes/reload_secure_settings")
+        except OpenSearchHttpError as e:
+            logger.error("Could not reload secure settings: %s", e)
+            return False
 
-    def _add(self, key: str, value: str):
-        try:
-            # Add newline to the end of the key, if missing
-            value += "" if value.endswith("\n") else "\n"
-            self._opensearch.run_bin(self._keystore, f"add --force {key}", stdin=value)
+        success = response.get("_nodes", {}).get("failed", -1) == 0
+        logger.debug("keystore reloaded: %s", success)
+        return success
 
-            self._clean_cache_if_needed()
-        except OpenSearchCmdError as e:
-            raise OpenSearchKeystoreError(str(e))
 
-    def _delete(self, key: str) -> None:
-        try:
-            self._opensearch.run_bin(self._keystore, f"remove {key}")
+class OpenSearchKeystoreEvents(Object):
+    """Keystore events."""
 
-            self._clean_cache_if_needed()
-        except OpenSearchCmdError as e:
-            if "does not exist in the keystore" in str(e):
-                logger.info(
-                    "opensearch_keystore._delete:"
-                    f" Key {key} not found in keystore, continuing..."
-                )
-                return
-            raise OpenSearchKeystoreError(str(e))
+    reload_event = EventSource(ReloadKeystoreEvent)
 
-    def reload_keystore(self) -> None:
-        """Updates the keystore value (adding or removing) and reload.
+    def __init__(
+        self,
+        charm: "OpenSearchBaseCharm",
+    ) -> None:
+        """Initialize keystore events."""
+        super().__init__(charm, key="opensearch_keystore_events")
+        self.charm = charm
 
-        This method targets only the local unit as alt_hosts is not set.
+        self.framework.observe(self.reload_event, self._on_reload)
 
-        Raises:
-            OpenSearchHttpError: If the reload fails.
-        """
-        response = self._opensearch.request("POST", "_nodes/reload_secure_settings")
-        logger.debug(f"_update_keystore_and_reload: response received {response}")
+    def _on_reload(self, event: ReloadKeystoreEvent) -> None:
+        """Handle keystore reload event."""
+        if not self.charm.keystore_manager.reload():
+            logger.error("Keystore reload failed.")
+            event.defer()

@@ -300,7 +300,7 @@ async def test_check_workload_version(ops_test: OpsTest) -> None:
                 "ssh",
                 "-m",
                 ops_test.model.info.name,
-                f"wazuh-indexer/{leader_id}",
+                f"opensearch/{leader_id}",
                 "--",
                 "sudo",
                 "snap",

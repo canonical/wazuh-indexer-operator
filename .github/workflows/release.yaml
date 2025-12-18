@@ -4,8 +4,11 @@ name: Release to latest/edge
 
 on:
   push:
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
     branches:
-      - main
+      - 2/edge
 
 jobs:
   ci-tests:
@@ -38,7 +41,7 @@ jobs:
       - ci-tests
     uses: canonical/data-platform-workflows/.github/workflows/release_charm.yaml@v29.0.0
     with:
-      channel: 4.11/edge
+      channel: 2/edge
       artifact-prefix: ${{ needs.ci-tests.outputs.artifact-prefix }}
     secrets:
       charmhub-token: ${{ secrets.CHARMHUB_TOKEN }}

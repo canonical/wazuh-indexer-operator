@@ -474,7 +474,7 @@ class TestOpenSearchTLS(unittest.TestCase):
         ]
     )
     @patch("charms.opensearch.v0.opensearch_tls.tempfile.NamedTemporaryFile")
-    @patch("charms.opensearch.v0.opensearch_tls.run_cmd")
+    @patch("charms.opensearch.v0.helper_security.run_cmd")
     @patch(f"{PEER_CLUSTERS_MANAGER}.deployment_desc")
     # Mocks to avoid I/O
     @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS.read_stored_ca")
@@ -563,7 +563,7 @@ class TestOpenSearchTLS(unittest.TestCase):
             in run_cmd.call_args_list[1].args[0]
         )
         assert (
-            "/var/snap/wazuh-indexer/current/etc/wazuh-indexer"
+            "/var/snap/opensearch/current/etc/opensearch"
             in named_temporary_file.call_args_list[0][1]["dir"]
         )
 
@@ -594,7 +594,7 @@ class TestOpenSearchTLS(unittest.TestCase):
         )
     )
     @patch("charms.opensearch.v0.opensearch_tls.tempfile.NamedTemporaryFile")
-    @patch("charms.opensearch.v0.opensearch_tls.run_cmd")
+    @patch("charms.opensearch.v0.helper_security.run_cmd")
     @patch(f"{PEER_CLUSTERS_MANAGER}.deployment_desc")
     # Mocks to avoid I/O
     @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS.read_stored_ca")
@@ -711,7 +711,7 @@ class TestOpenSearchTLS(unittest.TestCase):
             in run_cmd.call_args_list[1].args[0]
         )
         assert (
-            "/var/snap/wazuh-indexer/current/etc/wazuh-indexer"
+            "/var/snap/opensearch/current/etc/opensearch"
             in named_temporary_file.call_args_list[0][1]["dir"]
         )
 
@@ -742,8 +742,9 @@ class TestOpenSearchTLS(unittest.TestCase):
     )
     @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS._add_ca_to_request_bundle")
     @patch("charms.opensearch.v0.opensearch_tls.tempfile.NamedTemporaryFile")
-    @patch("charms.opensearch.v0.opensearch_tls.run_cmd")
+    @patch("charms.opensearch.v0.helper_security.run_cmd")
     @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS.read_stored_ca")
+    @patch("charms.opensearch.v0.helper_security.split_ca_chain")
     @patch(f"{PEER_CLUSTERS_MANAGER}.deployment_desc")
     # Mocks to avoid I/O
     @patch("builtins.open", side_effect=unittest.mock.mock_open())
@@ -753,6 +754,7 @@ class TestOpenSearchTLS(unittest.TestCase):
         deployment_type,
         _,
         deployment_desc,
+        split_ca_chain,
         read_stored_ca,
         run_cmd,
         named_temporary_file,
@@ -827,23 +829,26 @@ class TestOpenSearchTLS(unittest.TestCase):
         self.harness.set_leader(is_leader=True)
         original_status = self.harness.model.unit.status
 
+        split_ca_chain.return_value = ["new_ca"]
         self.charm.tls._on_certificate_available(event_mock)
 
         mock_add_ca_to_request_bundle.assert_called_once()
 
-        # Old CA cert is saved with corresponding alias, new new CA cert added to keystore
+        # Old CA cert is saved with corresponding alias, new CA cert added to keystore
         assert run_cmd.call_count == 3
         assert re.search(
-            "keytool *-changealias *-alias ca *-destalias old-ca",
+            "opensearch.keytool -changealias -alias ca-0 -destalias old-ca-0",
             run_cmd.call_args_list[0].args[0],
         )
-        assert re.search("keytool *-importcert.* *-alias ca", run_cmd.call_args_list[1].args[0])
+        assert re.search(
+            "opensearch.keytool -importcert.* *-alias ca-0", run_cmd.call_args_list[1].args[0]
+        )
         assert (
             "chmod +r /var/snap/wazuh-indexer/current/etc/wazuh-indexer/certificates/ca.p12"
             in run_cmd.call_args_list[2].args[0]
         )
         assert (
-            "/var/snap/wazuh-indexer/current/etc/wazuh-indexer"
+            "/var/snap/opensearch/current/etc/opensearch"
             in named_temporary_file.call_args_list[0][1]["dir"]
         )
         # NOTE: The new cert and chain are NOT saved into the keystore (disk)
@@ -876,7 +881,7 @@ class TestOpenSearchTLS(unittest.TestCase):
             (DeploymentType.FAILOVER_ORCHESTRATOR),
         ]
     )
-    @patch("charms.opensearch.v0.opensearch_tls.run_cmd")
+    @patch("charms.opensearch.v0.helper_security.run_cmd")
     @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS.read_stored_ca")
     @patch(f"{PEER_CLUSTERS_MANAGER}.deployment_desc")
     def test_on_certificate_available_ca_rotation_first_stage_any_cluster_non_leader(
@@ -1283,8 +1288,8 @@ class TestOpenSearchTLS(unittest.TestCase):
             (DeploymentType.FAILOVER_ORCHESTRATOR),
         ]
     )
-    @patch("charms.opensearch.v0.opensearch_tls.tempfile.NamedTemporaryFile")
-    @patch("charms.opensearch.v0.opensearch_tls.run_cmd")
+    @patch("charms.opensearch.v0.helper_security.tempfile.NamedTemporaryFile")
+    @patch("charms.opensearch.v0.helper_security.run_cmd")
     @patch(f"{PEER_CLUSTERS_MANAGER}.deployment_desc")
     # Mocks to avoid I/O
     @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS.read_stored_ca")
@@ -1375,7 +1380,7 @@ class TestOpenSearchTLS(unittest.TestCase):
         # Exporting new certs
         assert re.search(
             "openssl pkcs12 -export .* -out "
-            "/var/snap/wazuh-indexer/current/etc/wazuh-indexer/certificates/app-admin.p12 .* -name app-admin",
+            "/var/snap/opensearch/current/etc/opensearch/certificates/app-admin.p12 -name app-admin",
             run_cmd.call_args_list[0].args[0],
         )
         assert (
@@ -1383,12 +1388,11 @@ class TestOpenSearchTLS(unittest.TestCase):
             in run_cmd.call_args_list[1].args[0]
         )
         assert (
-            self.harness.get_relation_data(self.rel_id, "wazuh-indexer/0")["tls_ca_renewed"]
-            == "True"
+            "/var/snap/opensearch/current/etc/opensearch"
+            in named_temporary_file.call_args_list[0][1]["dir"]
         )
         assert (
-            "/var/snap/wazuh-indexer/current/etc/wazuh-indexer"
-            in named_temporary_file.call_args_list[0][1]["dir"]
+            self.harness.get_relation_data(self.rel_id, "opensearch/0")["tls_ca_renewed"] == "True"
         )
         # Note that the old flag is left intact
         assert (
@@ -1426,8 +1430,9 @@ class TestOpenSearchTLS(unittest.TestCase):
     )
     @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS._remove_ca_from_request_bundle")
     @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS.reload_tls_certificates")
-    @patch("charms.opensearch.v0.opensearch_tls.tempfile.NamedTemporaryFile")
-    @patch("charms.opensearch.v0.opensearch_tls.run_cmd")
+    @patch("charms.opensearch.v0.helper_security.tempfile.NamedTemporaryFile")
+    @patch("charms.opensearch.v0.helper_security.run_cmd")
+    @patch("charms.opensearch.v0.helper_security.exists")
     @patch(f"{PEER_CLUSTERS_MANAGER}.deployment_desc")
     # Mocks to avoid I/O
     @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS.read_stored_ca")
@@ -1448,6 +1453,7 @@ class TestOpenSearchTLS(unittest.TestCase):
         _____,
         read_stored_ca,
         deployment_desc,
+        os_path_exists,
         run_cmd,
         named_temporary_file,
         reload_tls_certificates,
@@ -1560,6 +1566,8 @@ class TestOpenSearchTLS(unittest.TestCase):
         mock_response_put_http_cert("1.1.1.1")
         original_status = self.harness.model.unit.status
 
+        os_path_exists.return_value = True
+
         self.charm.tls._on_certificate_available(event_mock)
 
         mock_remove_ca_from_request_bundle.assert_called_once()
@@ -1574,16 +1582,17 @@ class TestOpenSearchTLS(unittest.TestCase):
 
         assert re.search(
             "openssl pkcs12 -export .* -out "
-            f"/var/snap/wazuh-indexer/current/etc/wazuh-indexer/certificates/{cert_type}.p12 .* -name {cert_type}",
+            rf"/var/snap/opensearch/current/etc/opensearch/certificates/{cert_type}.p12 -name {cert_type}",
             run_cmd.call_args_list[0].args[0],
         )
         assert (
             f"chmod +r /var/snap/wazuh-indexer/current/etc/wazuh-indexer/certificates/{cert_type}.p12"
             in run_cmd.call_args_list[1].args[0]
         )
+
         assert re.search("keytool .*-delete .*-alias old-ca", run_cmd.call_args_list[-1].args[0])
         assert (
-            "/var/snap/wazuh-indexer/current/etc/wazuh-indexer"
+            "/var/snap/opensearch/current/etc/opensearch"
             in named_temporary_file.call_args_list[0][1]["dir"]
         )
 
@@ -1614,9 +1623,10 @@ class TestOpenSearchTLS(unittest.TestCase):
     )
     @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS._add_ca_to_request_bundle")
     @patch("charms.opensearch.v0.opensearch_tls.tempfile.NamedTemporaryFile")
-    @patch("charms.opensearch.v0.opensearch_tls.run_cmd")
+    @patch("charms.opensearch.v0.helper_security.run_cmd")
     @patch(f"{PEER_CLUSTERS_MANAGER}.deployment_desc")
     # Mock to avoid I/O
+    @patch("charms.opensearch.v0.helper_security.split_ca_chain")
     @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS.read_stored_ca")
     @patch("builtins.open", side_effect=unittest.mock.mock_open())
     def test_on_certificate_available_rotation_ongoing_on_this_unit(
@@ -1626,6 +1636,7 @@ class TestOpenSearchTLS(unittest.TestCase):
         leader,
         _,
         read_stored_ca,
+        split_ca_chain,
         deployment_desc,
         run_cmd,
         named_temporary_file,
@@ -1688,6 +1699,7 @@ class TestOpenSearchTLS(unittest.TestCase):
                 self.rel_id, f"{self.charm.unit.name}", {"tls_ca_renewing": "True"}
             )
 
+        split_ca_chain.return_value = ["new_ca"]
         self.charm.tls._on_certificate_available(self.charm.on.certificate_available)
 
         # exactly three run_cmd commands to be executed: checking the current CA for the
@@ -1732,9 +1744,10 @@ class TestOpenSearchTLS(unittest.TestCase):
     )
     @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS._add_ca_to_request_bundle")
     @patch("charms.opensearch.v0.opensearch_tls.tempfile.NamedTemporaryFile")
-    @patch("charms.opensearch.v0.opensearch_tls.run_cmd")
+    @patch("charms.opensearch.v0.helper_security.run_cmd")
     @patch(f"{PEER_CLUSTERS_MANAGER}.deployment_desc")
     # Mock to avoid I/O
+    @patch("charms.opensearch.v0.helper_security.split_ca_chain")
     @patch("charms.opensearch.v0.opensearch_tls.OpenSearchTLS.read_stored_ca")
     @patch("builtins.open", side_effect=unittest.mock.mock_open())
     def test_on_certificate_available_rotation_ongoing_on_another_unit(
@@ -1744,6 +1757,7 @@ class TestOpenSearchTLS(unittest.TestCase):
         leader,
         _,
         read_stored_ca,
+        split_ca_chain,
         deployment_desc,
         run_cmd,
         __,
@@ -1808,6 +1822,7 @@ class TestOpenSearchTLS(unittest.TestCase):
                 self.rel_id, f"{self.charm.app.name}/1", {"tls_ca_renewing": "True"}
             )
 
+        split_ca_chain.return_value = ["new_ca"]
         self.charm.tls._on_certificate_available(self.charm.on.certificate_available)
 
         # exactly three run_cmd commands to be executed: checking the current CA for the

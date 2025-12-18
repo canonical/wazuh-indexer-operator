@@ -342,6 +342,7 @@ async def http_request(
     user_password: Optional[str] = None,
     app: str = APP_NAME,
     json_resp: bool = True,
+    extra_headers: Optional[Dict[str, any]] = None,
 ):
     """Makes an HTTP request.
 
@@ -373,11 +374,19 @@ async def http_request(
             "url": endpoint,
             "timeout": (17, 17),
         }
+        headers = {}
         if json_resp:
-            request_kwargs["headers"] = {
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-            }
+            headers.update(
+                {
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                }
+            )
+        if extra_headers:
+            headers.update(extra_headers)
+
+        if headers:
+            request_kwargs["headers"] = headers
 
         if isinstance(payload, str):
             request_kwargs["data"] = payload
@@ -607,7 +616,7 @@ async def service_start_time(ops_test: OpsTest, app: str, unit_id: int) -> float
     _, unit_boot_time, _ = await ops_test.juju(*boot_time_cmd.split(), check=True)
     unit_boot_time = int(unit_boot_time.strip())
 
-    active_since_cmd = f"exec --unit {unit_name} -- systemctl show snap.wazuh-indexer.daemon --property=ActiveEnterTimestampMonotonic --value"
+    active_since_cmd = f"exec --unit {unit_name} -- systemctl show snap.opensearch.daemon --property=ActiveEnterTimestampMonotonic --value"
     _, active_time_since_boot, _ = await ops_test.juju(*active_since_cmd.split(), check=True)
     active_time_since_boot = int(active_time_since_boot.strip()) / 1000000
 

@@ -10,13 +10,13 @@ variable "app_name" {
 variable "channel" {
   description = "Charm channel"
   type        = string
-  default     = "2/stable"
+  default     = "2/edge"
 }
 
 variable "base" {
   description = "Charm base (old name: series)"
   type        = string
-  default     = "ubuntu@22.04"
+  default     = "ubuntu@24.04"
 }
 
 variable "config" {
@@ -27,8 +27,8 @@ variable "config" {
   }
 }
 
-variable "model" {
-  description = "Model name"
+variable "model_uuid" {
+  description = "Model UUID"
   type        = string
 }
 
@@ -105,8 +105,8 @@ variable "self-signed-certificates" {
 
 # --------
 # Additional variables - needed for extensibility
-variable "main_model" {
-  description = "Model name of the main orchestrator (to detect same-model apps)"
+variable "main_model_uuid" {
+  description = "Model UUID of the main orchestrator (to detect same-model apps)"
   type        = string
   default     = null
 }

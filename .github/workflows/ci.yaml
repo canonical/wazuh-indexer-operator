@@ -8,6 +8,10 @@ concurrency:
 
 on:
   pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.gitignore'
   schedule:
     - cron: '53 0 * * *' # Daily at 00:53 UTC
   # Triggered on push to branch "main" by .github/workflows/release.yaml
@@ -66,6 +70,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: (Github hosted) Mount /mnt to have more storage 
+        run: |
+          sudo mkdir -p /mnt/lxd/storage-pools
+          sudo mkdir -p /var/snap/lxd/common/lxd/storage-pools
+          sudo mount --bind /mnt/lxd/storage-pools /var/snap/lxd/common/lxd/storage-pools
+
       - name: (GitHub hosted) Free up disk space
         run: |
           printf '\nDisk usage before cleanup\n'
@@ -75,9 +85,6 @@ jobs:
           printf '\nDisk usage after cleanup\n'
           df --human-readable
 
-      - name: (self hosted) Disk usage
-        run: df --human-readable
-
       - name: Install terraform snap
         run: |
           sudo snap install terraform --channel=latest/stable --classic
@@ -85,7 +92,7 @@ jobs:
       - name: Lint / format / validate TF modules
         run: |
           pushd ./terraform
-          for dir in charm/ product/; do
+          for dir in charm/simple_deployment charm/large_deployment product/simple_deployment product/large_deployment; do
             (cd "${dir}" && terraform init && terraform fmt && terraform validate)
           done
           popd
@@ -94,71 +101,70 @@ jobs:
         run: |
           sudo snap install juju --channel=3.6
 
-# Not tested for Wazuh yet
-#       - name: LXD setup
-#         run: |
-#           sudo snap refresh lxd --channel=latest/stable
-#           sudo adduser "$USER" 'lxd'
-#           # `newgrp` does not work in GitHub Actions; use `sg` instead
-#           sg 'lxd' -c "lxd waitready"
-#           sg 'lxd' -c "lxd init --auto"
-#           sg 'lxd' -c "lxc network set lxdbr0 ipv6.address none"
-#           sudo iptables -F FORWARD
-#           sudo iptables -P FORWARD ACCEPT
-#
-#       - name: Juju setup
-#         run: |
-#           mkdir -p ~/.local/share/juju
-#           sg 'lxd' -c "juju bootstrap 'localhost' --config model-logs-size=10G"
-#           juju model-defaults logging-config='<root>=INFO; unit=DEBUG'
-#           juju add-model test
-#
-#           sudo tee -a /etc/sysctl.conf > /dev/null <<EOT
-#           vm.max_map_count=262144
-#           vm.swappiness=0
-#           net.ipv4.tcp_retries2=5
-#           fs.file-max=1048576
-#           EOT
-#
-#           sudo sysctl -p
-#
-#       - name: Terraform deploy - simple deployments product module
-#         run: |
-#           pushd ./terraform/product/
-#           terraform apply \
-#             -var='opensearch={"model": "test"}' \
-#             -var='backups-integrator={"config": {"bucket": "test"}}' \
-#             -auto-approve
-#           popd
-#
-#       - name: Wait for juju deployment
-#         run: |
-#           # TODO - remove this when juju wait-for starts reporting the up to date status
-#           until timeout 2m juju wait-for model test --query='life=="alive" && status=="available"'
-#           do
-#             echo "Retrying in 5 seconds..."
-#             juju status -m test
-#             sleep 5
-#           done
+      - name: LXD setup
+        run: |
+          sudo snap refresh lxd --channel=latest/stable
+          sudo adduser "$USER" 'lxd'
+          # `newgrp` does not work in GitHub Actions; use `sg` instead
+          sg 'lxd' -c "lxd waitready"
+          sg 'lxd' -c "lxd init --auto"
+          sg 'lxd' -c "lxc network set lxdbr0 ipv6.address none"
+          sudo iptables -F FORWARD
+          sudo iptables -P FORWARD ACCEPT
 
-# Disabled for Wazuh
-#   lib-check:
-#     name: Check libraries
-#     runs-on: ubuntu-latest
-#     timeout-minutes: 5
-#     steps:
-#       - name: Checkout
-#         uses: actions/checkout@v4
-#         with:
-#           fetch-depth: 0
-#       - name: Check libs
-#         uses: canonical/charming-actions/check-libraries@2.7.0
-#         continue-on-error: true
-#         with:
-#           credentials: ${{ secrets.CHARMHUB_TOKEN }}
-#           github-token: ${{ secrets.GITHUB_TOKEN }}
-#           use-labels: false
-#           fail-build: ${{ github.event_name == 'pull_request' }}
+      - name: Juju setup
+        run: |
+          mkdir -p ~/.local/share/juju
+          sg 'lxd' -c "juju bootstrap 'localhost' --config model-logs-size=10G"
+          juju model-defaults logging-config='<root>=INFO; unit=DEBUG'
+          juju add-model test
+
+          sudo tee -a /etc/sysctl.conf > /dev/null <<EOT
+          vm.max_map_count=262144
+          vm.swappiness=0
+          net.ipv4.tcp_retries2=5
+          fs.file-max=1048576
+          EOT
+
+          sudo sysctl -p
+
+      - name: Terraform deploy - simple deployments product module
+        run: |
+          MODEL_UUID=$(juju show-model test | grep "model-uuid" | awk '{split($0, a, ": "); print a[2]}')
+          pushd ./terraform/product/simple_deployment/
+          terraform apply \
+            -var="opensearch={\"model_uuid\": \"$MODEL_UUID\"}" \
+            -var="backups-integrator={\"config\": {\"bucket\": \"test\"}}" \
+            -auto-approve
+          popd
+
+      - name: Wait for juju deployment
+        run: |
+          # TODO - remove this when juju wait-for starts reporting the up to date status
+          until timeout 2m juju wait-for model test --query='life=="alive" && status=="available"'
+          do
+            echo "Retrying in 5 seconds..."
+            juju status -m test
+            sleep 5
+          done
+
+  lib-check:
+    name: Check libraries
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check libs
+        uses: canonical/charming-actions/check-libraries@2.7.0
+        continue-on-error: true
+        with:
+          credentials: ${{ secrets.CHARMHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          use-labels: false
+          fail-build: ${{ github.event_name == 'pull_request' }}
 
   build:
     strategy:

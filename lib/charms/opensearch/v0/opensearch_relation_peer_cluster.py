@@ -14,6 +14,8 @@ from charms.opensearch.v0.constants_charm import (
     AdminUser,
     COSUser,
     KibanaserverUser,
+    PClusterMainIsRequirer,
+    PClusterMissingRelations,
     PClusterOrchestratorsRemoved,
     PClusterWaitingForFailoverPromotion,
     PeerClusterOrchestratorRelationName,
@@ -21,24 +23,28 @@ from charms.opensearch.v0.constants_charm import (
 )
 from charms.opensearch.v0.constants_secrets import AZURE_CREDENTIALS, S3_CREDENTIALS
 from charms.opensearch.v0.constants_tls import CertType
-from charms.opensearch.v0.helper_charm import all_units, format_unit_name
+from charms.opensearch.v0.helper_charm import Status, all_units, diff, format_unit_name
 from charms.opensearch.v0.helper_cluster import ClusterTopology
+from charms.opensearch.v0.helper_plugins import remove_plugin_secret
 from charms.opensearch.v0.models import (
     AzureRelDataCredentials,
     DeploymentDescription,
     DeploymentType,
     Directive,
     Node,
+    ObjectStorageConfig,
     PeerClusterApp,
     PeerClusterOrchestrators,
     PeerClusterRelData,
     PeerClusterRelDataCredentials,
     PeerClusterRelErrorData,
+    PluginConfigInfo,
     S3RelDataCredentials,
     StartMode,
 )
 from charms.opensearch.v0.opensearch_exceptions import OpenSearchHttpError
 from charms.opensearch.v0.opensearch_internal_data import Scope
+from charms.opensearch.v0.opensearch_snapshots import ObjectStorageType
 from ops import (
     BlockedStatus,
     EventBase,
@@ -148,13 +154,35 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
     def _on_peer_cluster_relation_joined(self, event: RelationJoinedEvent):
         """Received by all units in main/failover clusters when new sub-cluster joins the rel."""
         if not self.charm.unit.is_leader():
+            logger.debug("Node not a leader. Skipping refresh relation data")
+            return
+
+        if not self.peer_cm.deployment_desc():
+            logger.debug("Current cluster not ready. Deferring event.")
+            event.defer()
             return
 
         self.refresh_relation_data(event, event_rel_id=event.relation.id, can_defer=False)
 
-    def _on_peer_cluster_relation_changed(self, event: RelationChangedEvent):
+    def _on_peer_cluster_relation_changed(self, event: RelationChangedEvent):  # noqa: C901
         """Event received by all units in sub-cluster when a new sub-cluster joins the relation."""
+        if self.charm.state.app.deployment_description:
+            self.charm.profiles_manager.check_missing_requirements()
+
         if not self.charm.unit.is_leader():
+            logger.debug("Node not a leader. Skipping refresh relation data")
+            return
+
+        if not event.relation.active:
+            logger.debug("Relation no longer active")
+            return
+
+        if not event.relation.units:
+            logger.debug("No units in relation. Skipping refresh relation data")
+            return
+
+        if not self.model.relations[PeerClusterOrchestratorRelationName]:
+            logger.debug("Node not a provider. Skipping refresh relation data")
             return
 
         # the current app is not ready
@@ -168,9 +196,22 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
             deployment_desc.typ == DeploymentType.FAILOVER_ORCHESTRATOR
             and self.should_promote_failover_to_main()
         ):
-            logger.info("Promoting failover orchestrator to main orchestrator")
             self._promote_failover()
             self.refresh_relation_data(event)
+            return
+
+        # Do not defer the event if we are waiting for a peer cluster relation
+        # Once the relation is established and the cluster starts we will re-process the event
+        is_waiting_for_peer_relation = (
+            Directive.WAIT_FOR_PEER_CLUSTER_RELATION in deployment_desc.pending_directives
+        )
+        self.refresh_relation_data(
+            event,
+            event_rel_id=event.relation.id,
+            can_defer=not is_waiting_for_peer_relation,
+        )
+
+        if is_waiting_for_peer_relation:
             return
 
         # only the main-orchestrator is able to designate a failover
@@ -182,6 +223,11 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
 
         if self._get_security_index_initialised():
             self.charm.peers_data.put(Scope.APP, "security_index_initialised", True)
+            # clean up the first data node when security index is initialised
+            self.charm.peers_data.delete(Scope.APP, "first_data_node")
+
+        if first_data_node := self._get_first_data_node():
+            self.charm.peers_data.put(Scope.APP, "first_data_node", first_data_node)
 
         # get list of relations with this orchestrator
         target_relation_ids = [
@@ -203,6 +249,7 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
             and self.charm.is_admin_user_configured()
             and self.charm.tls.is_fully_configured()
         ):
+            # TODO migrate to _on_start hook instead
             self.charm.handle_joining_data_node()
 
         if data.get("is_candidate_failover_orchestrator") != "true":
@@ -220,6 +267,7 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
             return
 
         # register the new failover in the current main peer relation data
+        logger.debug(f"Electing {candidate_failover_app.name} as new failover orchestrator")
         orchestrators.failover_app = candidate_failover_app
         orchestrators.failover_rel_id = event.relation.id
         self.charm.peers_data.put_object(Scope.APP, "orchestrators", orchestrators.to_dict())
@@ -232,6 +280,7 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
         """Broadcasts the new failover in all the cluster fleet"""
         candidate_failover_app = peer_cluster_app.app
         for rel_id in target_relation_ids:
+            logger.debug(f"broadcasting failover: {peer_cluster_app.app.name} to rel id: {rel_id}")
             orchestrators = PeerClusterOrchestrators.from_dict(
                 self.get_obj_from_rel("orchestrators", rel_id, remote_app=False)
             )
@@ -240,7 +289,14 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
 
     def _on_peer_cluster_relation_departed(self, event: RelationDepartedEvent) -> None:
         """Event received by all units in sub-cluster when a sub-cluster leaves the relation."""
-        if not self.charm.unit.is_leader():
+        if not (self.charm.unit.is_leader() and len(event.relation.units) > 0):
+            return
+
+        if not self.charm.opensearch.is_node_up():
+            # if this unit is the one departing, dont update fleet apps
+            # otherwise, update fleet apps after service restarts and event is re-emitted
+            logger.debug("Node is not up. Deferring event.")
+            event.defer()
             return
 
         # we need to update the fleet planned units
@@ -304,6 +360,7 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
 
     def _promote_failover(self) -> None:
         """Handle failover promotion to main orchestrator."""
+        logger.debug("Promoting unit %s from failover to main", self.charm.model.unit.name)
         # Promote failover's deployment description type
         self.charm.opensearch_peer_cm.promote_deployment_type()
 
@@ -322,39 +379,44 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
             self.put_in_rel({"trigger": "main"}, rel_id=rel_id)
 
         # check if any credentials exist without relations
-        self._block_if_has_credentials_with_missing_relations()
+        self.check_credentials_with_missing_relations()
 
-        # ensuring quorum
-        deployment_desc = self.charm.opensearch_peer_cm.deployment_desc()
-        cms = self._fetch_local_cm_nodes(deployment_desc)
-        self.charm.opensearch_peer_cm.validate_recommended_cm_unit_count(cms)
-
-    def _block_if_has_credentials_with_missing_relations(self) -> None:
+    def check_credentials_with_missing_relations(self) -> None:
         """Checks if the relation data has credentials for non-related apps"""
         if not self.charm.unit.is_leader():
             return
 
-        credentials_to_check = {
-            "s3-integrator": {"key": S3_CREDENTIALS, "relation_name": S3_RELATION},
-            "azure-storage-integrator": {
-                "key": AZURE_CREDENTIALS,
-                "relation_name": AZURE_RELATION,
-            },
-        }
-
-        should_block = [
-            name
-            for name, info in credentials_to_check.items()
-            if self._has_secret_and_no_relation(info["key"], info["relation_name"])
+        plugin_relation_names = [
+            s.relation_name
+            for s in self.charm.state.app.plugin_config_info.values()
+            if s.relation_name
         ]
-        if should_block:
-            message = f"Found credentials with missing relations. Add relation with {', '.join(should_block)} and any client applications."
-            self.charm.status.set(BlockedStatus(message), app=True)
+        backup_relations = [
+            rel_name
+            for rel_name, label in [
+                (S3_RELATION, S3_CREDENTIALS),
+                (AZURE_RELATION, AZURE_CREDENTIALS),
+            ]
+            if self.charm.secrets.has(Scope.APP, label)
+        ]
+        if missing_relations := [
+            relation
+            for relation in plugin_relation_names + backup_relations
+            if not self.charm.model.get_relation(relation)
+        ]:
+            self.charm.status.set(
+                BlockedStatus(PClusterMissingRelations.format(", ".join(missing_relations))),
+                app=True,
+            )
+            self.charm.state.app.relation_data.put(Scope.APP, "missing_relations", True)
+            return
 
-    def _has_secret_and_no_relation(self, key: str, relation_name: str) -> bool:
-        """Checks if the relation data has credentials for a non-related app"""
-        return self.charm.secrets.has(Scope.APP, key) and not self.charm.model.get_relation(
-            relation_name
+        # No missing relations, clean up any previous state
+        self.charm.state.app.relation_data.delete(Scope.APP, "missing_relations")
+        self.charm.status.clear(
+            PClusterMissingRelations,
+            pattern=Status.CheckPattern.Interpolated,
+            app=True,
         )
 
     def refresh_relation_data(  # noqa: C901
@@ -414,13 +476,24 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
         # save the orchestrators of this fleet
         has_units = self.charm.app.planned_units() > 0
         for rel_id in all_relation_ids:
-            orchestrators = self.get_obj_from_rel("orchestrators", rel_id=rel_id)
+            orchestrators = self.get_obj_from_rel("orchestrators", rel_id=rel_id, remote_app=False)
+            logger.debug(
+                "Provider Updating orchestrators for requirer %s previous orchestrators %s. Updating with cluster type %s with %s",
+                self.model.get_relation(
+                    relation_name=self.relation_name, relation_id=rel_id
+                ).app.name,
+                orchestrators,
+                cluster_type,
+                deployment_desc.app.to_dict(),
+            )
             orchestrators.update(
                 {
                     f"{cluster_type}_app": deployment_desc.app.to_dict() if has_units else None,
                     f"{cluster_type}_rel_id": rel_id if has_units else -1,
                 }
             )
+            # in case of demotion update the trigger
+            self.put_in_rel(data={"trigger": cluster_type}, rel_id=rel_id)
             self.put_in_rel(data={"orchestrators": json.dumps(orchestrators)}, rel_id=rel_id)
 
             # we add the hash of the rel_data to only emit a change event
@@ -468,6 +541,9 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
         self.delete_from_rel("cluster_fleet_apps", rel_id=rel_id)
         self.delete_from_rel("data", rel_id=rel_id)
         self.delete_from_rel("rel_data_hash", rel_id=rel_id)
+        self.delete_from_rel("error_data", rel_id=rel_id)
+        self.delete_from_rel("trigger", rel_id=rel_id)
+        self.delete_from_rel("orchestrators", rel_id=rel_id)
 
     def _update_fleet(
         self, fleet_dict: dict[str, dict[str, Any]], app: PeerClusterApp, key: Optional[str] = None
@@ -536,13 +612,17 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
             if not self.charm.model.get_relation(AZURE_RELATION):
                 return None
 
-            azure_storage_conn_info = self.charm.backup.client.get_azure_storage_connection_info()
-            if not azure_storage_conn_info.get("storage-account"):
+            object_storage_config = (
+                self.charm.snapshots_manager.get_storage_config(ObjectStorageType.AZURE)
+                or ObjectStorageConfig()
+            )
+            azure = object_storage_config.azure
+            if not (azure and azure.credentials and azure.credentials.storage_account):
                 return None
 
             # As the main orchestrator, this application must set the azure information.
-            storage_account = azure_storage_conn_info.get("storage-account")
-            secret_key = azure_storage_conn_info.get("secret-key")
+            storage_account = azure.credentials.storage_account
+            secret_key = azure.credentials.secret_key
 
             # set the secrets in the charm
             # TODO Move this to azure relation and include both in one secret
@@ -556,7 +636,7 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
 
         # Return what we have received from the peer relation
         return AzureRelDataCredentials(
-            storage_account=self.charm.secrets.get(Scope.APP, "azure-access-key"),
+            storage_account=self.charm.secrets.get(Scope.APP, "azure-storage-account"),
             secret_key=self.charm.secrets.get(Scope.APP, "azure-secret-key"),
         )
 
@@ -567,20 +647,34 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
         if deployment_desc.typ == DeploymentType.MAIN_ORCHESTRATOR:
             if not self.charm.model.get_relation(S3_RELATION):
                 return None
-
-            if not self.charm.backup.client.get_s3_connection_info().get("access-key"):
+            object_storage_config = (
+                self.charm.snapshots_manager.get_storage_config(ObjectStorageType.S3)
+                or ObjectStorageConfig()
+            )
+            s3_cfg = object_storage_config.s3
+            if not (
+                s3_cfg
+                and s3_cfg.credentials
+                and s3_cfg.credentials.access_key
+                and s3_cfg.credentials.secret_key
+            ):
                 return None
 
             # As the main orchestrator, this application must set the S3 information.
-            access_key = self.charm.backup.client.get_s3_connection_info().get("access-key")
-            secret_key = self.charm.backup.client.get_s3_connection_info().get("secret-key")
+            access_key = s3_cfg.credentials.access_key
+            secret_key = s3_cfg.credentials.secret_key
+            s3_tls_ca_chain = s3_cfg.tls_ca_chain
 
             # set the secrets in the charm
             # TODO Move this to s3 relation and include both in one secret
             self.charm.secrets.put(Scope.APP, "s3-access-key", access_key)
             self.charm.secrets.put(Scope.APP, "s3-secret-key", secret_key)
+            if s3_tls_ca_chain:
+                self.charm.secrets.put(Scope.APP, "s3-tls-ca-chain", s3_tls_ca_chain)
 
-            return S3RelDataCredentials(access_key=access_key, secret_key=secret_key)
+            return S3RelDataCredentials(
+                access_key=access_key, secret_key=secret_key, s3_tls_ca_chain=s3_tls_ca_chain
+            )
 
         if not self.charm.secrets.get(Scope.APP, "s3-access-key"):
             return None
@@ -589,6 +683,7 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
         return S3RelDataCredentials(
             access_key=self.charm.secrets.get(Scope.APP, "s3-access-key"),
             secret_key=self.charm.secrets.get(Scope.APP, "s3-secret-key"),
+            s3_tls_ca_chain=self.charm.secrets.get(Scope.APP, "s3-tls-ca-chain"),
         )
 
     def _rel_data(
@@ -619,6 +714,12 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
             credentials=credentials,
             deployment_desc=deployment_desc,
             security_index_initialised=self._get_security_index_initialised(),
+            first_data_node=self._get_first_data_node(),
+            plugins=(
+                self._plugin_config_info()
+                if deployment_desc.typ == DeploymentType.MAIN_ORCHESTRATOR
+                else None
+            ),
         )
 
     def _rel_data_credentials(
@@ -658,6 +759,8 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
         elif deployment_desc.typ == DeploymentType.OTHER:
             should_sever_relation, should_retry = True, False
             blocked_msg = "Related to non 'main/failover'-orchestrator cluster."
+        elif Directive.WAIT_FOR_PEER_CLUSTER_RELATION in deployment_desc.pending_directives:
+            blocked_msg = f"Waiting for peer cluster relation to be created {message_suffix}."
         elif (
             orchestrators.main_app
             and orchestrators.main_app.id != deployment_desc.app.id
@@ -679,7 +782,7 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
         ):
             if not self.charm.peers_data.get(Scope.APP, "security_index_initialised", False):
                 blocked_msg = f"Security index not initialized {message_suffix}."
-        elif ClusterTopology.data_role_in_cluster_fleet_apps(
+        elif ClusterTopology.is_data_role_in_cluster_fleet_apps(
             self.charm
         ) and self.charm.peers_data.get(Scope.APP, "security_index_initialised", False):
             # Requirer units should start after all provider units have started,
@@ -710,6 +813,22 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
             blocked_message=blocked_msg,
             deployment_desc=deployment_desc,
         )
+
+    def _plugin_config_info(self) -> dict[str, PluginConfigInfo]:
+        """Returns managed plugin configurations and grants related secrets to subclusters"""
+        plugins = self.charm.state.app.plugin_config_info
+        return {
+            label: plugin
+            for label, plugin in plugins.items()
+            if plugin.secret_id and self._grant_secret_to_subclusters(plugin.secret_id)
+        }
+
+    def _grant_secret_to_subclusters(self, secret_id: str) -> bool:
+        """Returns True if secret is successfully granted to all subclusters"""
+        for relation in self.charm.model.relations[self.relation_name]:
+            if not self.secrets.grant_secret_to_relation(secret_id, relation):
+                return False
+        return True
 
     def _fetch_local_cm_nodes(self, deployment_desc: DeploymentDescription) -> List[Node]:
         """Fetch the cluster_manager eligible node IPs in the current cluster."""
@@ -795,6 +914,11 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
                 "access-key": self.secrets.get_secret_id(Scope.APP, "s3-access-key"),
                 "secret-key": self.secrets.get_secret_id(Scope.APP, "s3-secret-key"),
             }
+
+        if rel_data.credentials and getattr(rel_data.credentials.s3, "s3_tls_ca_chain", None):
+            if sid := self.secrets.get_secret_id(Scope.APP, "s3-tls-ca-chain"):
+                redacted_dict["credentials"]["s3"]["s3-tls-ca-chain"] = sid
+
         if (
             rel_data.credentials.azure
             and rel_data.credentials.azure.storage_account
@@ -833,6 +957,10 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
                             self.secrets.grant_secret_to_relation(
                                 secret_id["secret-key"], relation
                             )
+                        if secret_id.get("s3-tls-ca-chain"):
+                            self.secrets.grant_secret_to_relation(
+                                secret_id["s3-tls-ca-chain"], relation
+                            )
                     elif key == "azure":
                         if secret_id["storage-account"]:
                             self.secrets.grant_secret_to_relation(
@@ -861,6 +989,32 @@ class OpenSearchPeerClusterProvider(OpenSearchPeerClusterRelation):
 
         return False
 
+    def _get_first_data_node(self) -> str | None:
+        """Get the first data node from the relation data."""
+        if first_data_node := self.charm.peers_data.get(Scope.APP, "first_data_node", None):
+            return first_data_node
+
+        # check all other clusters if they have initialised the security index
+        all_relation_ids = [
+            rel.id for rel in self.charm.model.relations[self.relation_name] if len(rel.units) > 0
+        ]
+
+        for rel_id in all_relation_ids:
+            if first_data_node := self.get_from_rel(
+                "first_data_node", rel_id=rel_id, remote_app=True
+            ):
+                return first_data_node
+
+        return None
+
+    def clean_all_relation_data(self) -> None:
+        """Clean up all relation data."""
+        if not self.charm.unit.is_leader():
+            return
+
+        for rel in self.charm.model.relations[self.relation_name]:
+            self._delete_rel_data(rel.id)
+
 
 class OpenSearchPeerClusterRequirer(OpenSearchPeerClusterRelation):
     """Peer cluster relation requirer class."""
@@ -868,10 +1022,6 @@ class OpenSearchPeerClusterRequirer(OpenSearchPeerClusterRelation):
     def __init__(self, charm: "OpenSearchBaseCharm"):
         super().__init__(charm, PeerClusterRelationName)
 
-        self.framework.observe(
-            charm.on[self.relation_name].relation_joined,
-            self._on_peer_cluster_relation_joined,
-        )
         self.framework.observe(
             charm.on[self.relation_name].relation_changed,
             self._on_peer_cluster_relation_changed,
@@ -881,12 +1031,11 @@ class OpenSearchPeerClusterRequirer(OpenSearchPeerClusterRelation):
             self._on_peer_cluster_relation_departed,
         )
 
-    def _on_peer_cluster_relation_joined(self, event: RelationJoinedEvent):
-        """Event received when a new main-failover cluster unit joins the fleet."""
-        pass
-
     def _on_peer_cluster_relation_changed(self, event: RelationChangedEvent):  # noqa: C901
         """Peer cluster relation change hook. Crucial to capture changes from the provider side."""
+        if self.charm.state.app.deployment_description:
+            self.charm.profiles_manager.check_missing_requirements()
+
         if not self.charm.unit.is_leader():
             return
 
@@ -904,14 +1053,29 @@ class OpenSearchPeerClusterRequirer(OpenSearchPeerClusterRelation):
         # register in the 'main/failover'-CMs the number of planned units of the current app
         self._put_current_app(event.relation.id, deployment_desc)
 
+        # set the main orchestrator registered flag for this relation
+        local_orchestrators = PeerClusterOrchestrators.from_dict(
+            self.charm.peers_data.get_object(Scope.APP, "orchestrators") or {}
+        )
+        self._put_main_orchestrator_registered(
+            event.relation.id, local_orchestrators.main_app is not None
+        )
+
         if not (data := event.relation.data.get(event.app)):
+            logger.debug("No data found in relation.")
             return
 
+        logger.debug(
+            "PeerClusterRelationChanged from provider %s data: %s", event.relation.app.name, data
+        )
         # fetch the trigger of this event
         trigger = data.get("trigger")
-
+        if not self.get_obj_from_rel(key="orchestrators", rel_id=event.relation.id):
+            logger.warning("Orchestrators not set yet")
+            return
         # fetch main and failover clusters relations ids if any
         orchestrators = self._orchestrators(event, data, trigger)
+        logger.debug(f"Orchestrators: {orchestrators}")
 
         if self._is_promoted_failover(orchestrators):
             # failover has been promoted to main, delete failover
@@ -931,6 +1095,7 @@ class OpenSearchPeerClusterRequirer(OpenSearchPeerClusterRelation):
             self._put_main_orchestrator_registered(orchestrators.failover_rel_id, True)
 
         if self._error_set_from_providers(orchestrators, data, event.relation.id):
+            logger.debug("errors from providers")
             # check errors sent by providers
             # check if valid data is present if so update the seed hosts
             if data.get("data"):
@@ -946,14 +1111,27 @@ class OpenSearchPeerClusterRequirer(OpenSearchPeerClusterRelation):
 
         # fetch the success data
         data = self.peer_cm.rel_data_from_str(data["data"])
+
         # check errors that can only be figured out from the requirer side
         if self._error_set_from_requirer(orchestrators, deployment_desc, data, event.relation.id):
+            logger.debug("Error from requirer")
             return
 
         # this means it's a previous "main orchestrator" that was unrelated then re-related
         if deployment_desc.typ == DeploymentType.MAIN_ORCHESTRATOR:
             self.charm.opensearch_peer_cm.demote_deployment_type()
             deployment_desc = self.charm.opensearch_peer_cm.deployment_desc()
+            # demoted main orchestrator should remove secrets it created for plugins
+            self._remove_plugin_configs()
+            self.charm.peer_cluster_provider.refresh_relation_data(
+                event, event.relation.id, can_defer=False
+            )
+
+        # we need to differentiate between plugins being None and {}
+        # when an empty dict, plugins have been removed from the main orchestrator
+        # and we need to also remove them in subclusters
+        if (plugin_configs := data.plugins) is not None:
+            self._update_plugin_configs(plugin_configs)
 
         # broadcast that this cluster is a failover candidate, and let the main CM elect it or not
         if deployment_desc.typ == DeploymentType.FAILOVER_ORCHESTRATOR:
@@ -967,6 +1145,7 @@ class OpenSearchPeerClusterRequirer(OpenSearchPeerClusterRelation):
             )
 
         # register main and failover cm app names if any
+        logger.debug("Requirer updating orchestrators")
         self.charm.peers_data.put_object(Scope.APP, "orchestrators", orchestrators.to_dict())
 
         # clear or set missing orchestrator status
@@ -993,6 +1172,42 @@ class OpenSearchPeerClusterRequirer(OpenSearchPeerClusterRelation):
 
         # recompute the deployment desc
         self.charm.opensearch_peer_cm.run_with_relation_data(data)
+
+    def _update_plugin_configs(self, configs_from_relation) -> None:
+        """Add or Remove plugin config information transferred from main orchestrator"""
+        current_app_plugin_info = self.charm.state.app.plugin_config_info
+        add, remove = diff(configs_from_relation.keys(), current_app_plugin_info.keys())
+
+        for label in remove:
+            remove_plugin_secret(self.charm, label)
+
+        for label in add:
+            plugin = configs_from_relation[label]
+            if plugin.secret_id:
+                self.charm.secrets.get_tracked_secret(plugin.secret_id, Scope.APP, label)
+                self.charm.plugin_manager.put_plugin_config(
+                    scope=Scope.APP,
+                    label=label,
+                    secret_id=plugin.secret_id,
+                    relation_name=plugin.relation_name,
+                )
+
+    def _remove_plugin_secret_ids(self):
+        """Removes secret IDs from the stored plugin confis"""
+        plugins = self.charm.state.app.plugin_config_info
+        for label, plugin in plugins.items():
+            self.charm.plugin_manager.put_plugin_config(
+                scope=Scope.APP,
+                label=label,
+                secret_id=None,
+                relation_name=plugin.relation_name,
+            )
+
+    def _remove_plugin_configs(self):
+        """Removes stored plugin configurations"""
+        plugins_labels = self.charm.state.app.plugin_config_info.keys()
+        for label in plugins_labels:
+            remove_plugin_secret(self.charm, label)
 
     def apply_orchestrator_status(self) -> None:
         """Sets or clears status based on presence of local orchestrators."""
@@ -1022,6 +1237,7 @@ class OpenSearchPeerClusterRequirer(OpenSearchPeerClusterRelation):
 
         if not (self.charm.is_admin_user_configured() and self.charm.tls.is_fully_configured()):
             return
+
         self.put_in_rel(
             data={"main_orchestrator_registered": "true" if is_registered else "false"},
             rel_id=failover_rel_id,
@@ -1106,7 +1322,6 @@ class OpenSearchPeerClusterRequirer(OpenSearchPeerClusterRelation):
         remote_orchestrators = self.get_obj_from_rel(key="orchestrators", rel_id=event.relation.id)
         if not remote_orchestrators:
             remote_orchestrators = json.loads(data["orchestrators"])
-
         # fetch the (main/failover)-cluster-orchestrator relations
         cm_relations = [
             rel.id
@@ -1118,6 +1333,12 @@ class OpenSearchPeerClusterRequirer(OpenSearchPeerClusterRelation):
 
         local_orchestrators = self.charm.peers_data.get_object(Scope.APP, "orchestrators") or {}
         if trigger in {"main", "failover"} and len(event.relation.units) > 0:
+            logger.debug(
+                "Updating local orchestrator from provider %s. trigger %s The orchestrators are %s",
+                event.relation.app.name,
+                trigger,
+                remote_orchestrators,
+            )
             local_orchestrators.update(
                 {
                     f"{trigger}_rel_id": event.relation.id,
@@ -1142,7 +1363,7 @@ class OpenSearchPeerClusterRequirer(OpenSearchPeerClusterRelation):
             self.charm.peers_data.get_object(Scope.APP, "orchestrators") or {}
         )
 
-        if not orchestrators:
+        if orchestrators.main_app is None:
             return
 
         # set the security index as initialised in the unit data bag with the main orchestrator
@@ -1190,8 +1411,12 @@ class OpenSearchPeerClusterRequirer(OpenSearchPeerClusterRelation):
 
     def _on_peer_cluster_relation_departed(self, event: RelationDepartedEvent):
         """Handle when 'main/failover'-CMs leave the relation (app or relation removal)."""
+        logger.debug(f"Peer cluster relation departed from unit: {event.unit.name}")
         if not self.charm.unit.is_leader():
             return
+
+        # clean status if main is no longer requirer
+        self._clean_main_orchestrator_is_requirer_status(event.relation)
 
         # fetch current deployment_desc
         deployment_desc = self.peer_cm.deployment_desc()
@@ -1201,13 +1426,14 @@ class OpenSearchPeerClusterRequirer(OpenSearchPeerClusterRelation):
             self.charm.peers_data.get_object(Scope.APP, "orchestrators")
         )
 
-        # a cluster of type "other" is departing (wrong relation), or, the current is a main
-        # orchestrator and a failover is departing, we can safely ignore.
+        # a non elected orchestrator is departing (wrong relation), or the current is a
+        # main orchestrator and a failover is departing, we can safely ignore.
         if event.relation.id not in [
             orchestrators.main_rel_id,
             orchestrators.failover_rel_id,
         ]:
             self._clear_errors(f"error_from_requirer-{event.relation.id}")
+            self._clear_errors(f"error_from_providers-{event.relation.id}")
             return
 
         # handle scale-down at the charm level storage detaching, or??
@@ -1239,6 +1465,7 @@ class OpenSearchPeerClusterRequirer(OpenSearchPeerClusterRelation):
             elif self.charm.peer_cluster_provider.should_promote_failover_to_main():
                 logger.info("Promoting failover orchestrator to main orchestrator")
                 self.charm.peer_cluster_provider._promote_failover()
+                self._remove_plugin_secret_ids()
                 self.charm.peer_cluster_provider.refresh_relation_data(event, can_defer=False)
 
         # clear previously set errors due to this relation
@@ -1333,7 +1560,7 @@ class OpenSearchPeerClusterRequirer(OpenSearchPeerClusterRelation):
         self._clear_errors(f"error_from_providers-{event_rel_id}")
         return False
 
-    def _error_set_from_requirer(
+    def _error_set_from_requirer(  # noqa: C901
         self,
         orchestrators: PeerClusterOrchestrators,
         deployment_desc: DeploymentDescription,
@@ -1343,10 +1570,9 @@ class OpenSearchPeerClusterRequirer(OpenSearchPeerClusterRelation):
         """Fetch error when relation is wrong and can only be computed on the requirer side."""
         blocked_msg = None
         provider_deployment_desc = peer_cluster_rel_data.deployment_desc
-        if (
-            deployment_desc.typ == DeploymentType.MAIN_ORCHESTRATOR
-            and provider_deployment_desc.promotion_time
-            and deployment_desc.promotion_time > provider_deployment_desc.promotion_time
+        if deployment_desc.typ == DeploymentType.MAIN_ORCHESTRATOR and (
+            provider_deployment_desc.promotion_time is None
+            or deployment_desc.promotion_time > provider_deployment_desc.promotion_time
         ):
             cluster_fleet_apps = (
                 self.charm.peers_data.get_object(Scope.APP, "cluster_fleet_apps") or {}
@@ -1356,7 +1582,7 @@ class OpenSearchPeerClusterRequirer(OpenSearchPeerClusterRelation):
                 provider_app_id in cluster_fleet_apps
                 and cluster_fleet_apps[provider_app_id]["planned_units"] > 0
             ):
-                blocked_msg = "Main cluster-orchestrator cannot be requirer of relation."
+                blocked_msg = PClusterMainIsRequirer
         elif event_rel_id not in [
             orchestrators.main_rel_id,
             orchestrators.failover_rel_id,
@@ -1445,3 +1671,79 @@ class OpenSearchPeerClusterRequirer(OpenSearchPeerClusterRelation):
             error = self.charm.peers_data.get(Scope.APP, error_label, "")
             self.charm.status.clear(error, app=True)
             self.charm.peers_data.delete(Scope.APP, error_label)
+
+    def set_first_data_node(self, first_data_node: str | None) -> None:
+        """Set the first data node in the relation data."""
+        orchestrators = PeerClusterOrchestrators.from_dict(
+            self.charm.peers_data.get_object(Scope.APP, "orchestrators") or {}
+        )
+
+        if orchestrators.main_app is None:
+            return
+
+        logger.debug(
+            f"Setting first data node '{first_data_node}' for orchestrator {orchestrators.main_app.id}"
+        )
+
+        if first_data_node is None:
+            # if first data node is None, delete the key from the relation data
+            self.delete_from_rel(key="first_data_node", rel_id=orchestrators.main_rel_id)
+            return
+
+        # set the first data node in the relation data
+        self.put_in_rel(
+            data={"first_data_node": first_data_node},
+            rel_id=orchestrators.main_rel_id,
+        )
+
+    def get_local_first_data_node(self) -> str | None:
+        """Get first data node from the local app relation data."""
+        orchestrators = PeerClusterOrchestrators.from_dict(
+            self.charm.peers_data.get_object(Scope.APP, "orchestrators") or {}
+        )
+
+        if orchestrators.main_app is None:
+            return
+
+        return self.get_from_rel(
+            key="first_data_node",
+            rel_id=orchestrators.main_rel_id,
+            remote_app=False,
+        )
+
+    def get_cluster_first_data_node(self) -> str | None:
+        """Get the first data node from the cluster relation data."""
+        orchestrators = PeerClusterOrchestrators.from_dict(
+            self.charm.peers_data.get_object(Scope.APP, "orchestrators") or {}
+        )
+
+        if orchestrators.main_app is None:
+            return None
+
+        peer_cluster_data = self.get_from_rel(
+            "data", rel_id=orchestrators.main_rel_id, remote_app=True
+        )
+        logger.debug(f"get_cluster_first_data_node : data read: {peer_cluster_data}")
+
+        if not peer_cluster_data:
+            return None
+
+        return self.peer_cm.rel_data_from_str(peer_cluster_data).first_data_node
+
+    def _clean_main_orchestrator_is_requirer_status(self, departing_relation: Relation) -> None:
+        """Block the charm if main orchestrator is a requirer"""
+        if (
+            not self.charm.unit.is_leader()
+            or not (deployment_desc := self.peer_cm.deployment_desc())
+            or deployment_desc.typ != DeploymentType.MAIN_ORCHESTRATOR
+        ):
+            return
+
+        peer_cluster_requirer_relations = [
+            rel
+            for rel in self.model.relations[PeerClusterRelationName]
+            if rel.id != departing_relation.id
+        ]
+        # clean the status if it is set
+        if not peer_cluster_requirer_relations:
+            self.charm.status.clear(PClusterMainIsRequirer, app=True)
