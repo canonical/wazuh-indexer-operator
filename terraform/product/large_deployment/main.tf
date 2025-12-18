@@ -3,17 +3,17 @@
 
 locals {
   all_models = distinct(concat(
-    [var.main.model],
-    var.failover != null ? [var.failover.model] : [],
-    var.apps != null ? [for app in var.apps : app.model] : [],
+    [var.main.model_uuid],
+    var.failover != null ? [var.failover.model_uuid] : [],
+    var.apps != null ? [for app in var.apps : app.model_uuid] : [],
   ))
 
   # Map each model to its OpenSearch apps
   opensearch_apps_per_model = {
-    for model in local.all_models : model => flatten(concat(
-      model == var.main.model ? [var.main.app_name] : [],
-      var.failover != null && model == var.failover.model ? [var.failover.app_name] : [],
-      var.apps != null ? [for app in var.apps : app.app_name if app.model == model] : [],
+    for model_uuid in local.all_models : model_uuid => flatten(concat(
+      model_uuid == var.main.model_uuid ? [var.main.app_name] : [],
+      var.failover != null && model_uuid == var.failover.model_uuid ? [var.failover.app_name] : [],
+      var.apps != null ? [for app in var.apps : app.app_name if app.model_uuid == model_uuid] : [],
     ))
   }
 }
@@ -34,8 +34,8 @@ module "opensearch" {
 
 # opensearch-dashboards in the main model
 module "opensearch-dashboards" {
-  source = "git::https://github.com/canonical/opensearch-dashboards-operator//terraform?ref=2/edge"
-  model  = var.main.model
+  source     = "git::https://github.com/canonical/opensearch-dashboards-operator//terraform?ref=2/edge"
+  model_uuid = var.main.model_uuid
 
   channel  = var.opensearch-dashboards.channel
   revision = var.opensearch-dashboards.revision
@@ -57,8 +57,8 @@ resource "juju_application" "data-integrator" {
     revision = var.data-integrator.revision
     base     = var.data-integrator.base
   }
-  model  = var.main.model
-  config = var.data-integrator.config
+  model_uuid = var.main.model_uuid
+  config     = var.data-integrator.config
 
   constraints = var.data-integrator.constraints
   placement   = length(var.data-integrator.machines) == 1 ? var.data-integrator.machines[0] : null
@@ -72,8 +72,8 @@ resource "juju_application" "backups-integrator" {
     revision = var.backups-integrator.revision
     base     = var.backups-integrator.base
   }
-  model  = var.main.model
-  config = var.backups-integrator.config
+  model_uuid = var.main.model_uuid
+  config     = var.backups-integrator.config
 
   constraints = var.backups-integrator.constraints
   placement   = length(var.backups-integrator.machines) == 1 ? var.backups-integrator.machines[0] : null
@@ -88,8 +88,8 @@ resource "juju_application" "grafana_agents" {
     channel  = var.grafana-agent.channel
     revision = var.grafana-agent.revision
   }
-  model  = each.value
-  config = var.grafana-agent.config
+  model_uuid = each.value
+  config     = var.grafana-agent.config
 }
 
 #--------------------------------------------------------
@@ -100,7 +100,7 @@ resource "juju_application" "grafana_agents" {
 resource "juju_integration" "opensearch_dashboards-tls-integration" {
   for_each = var.opensearch-dashboards.tls ? { "integrate" = true } : {}
 
-  model = var.main.model
+  model_uuid = var.main.model_uuid
 
   application {
     name = var.opensearch-dashboards.app_name
@@ -118,7 +118,7 @@ resource "juju_integration" "opensearch_dashboards-tls-integration" {
 
 # integrate the dashboards with the opensearch main
 resource "juju_integration" "opensearch_dashboards-opensearch_main-integration" {
-  model = var.main.model
+  model_uuid = var.main.model_uuid
 
   application {
     name = var.opensearch-dashboards.app_name
@@ -135,7 +135,7 @@ resource "juju_integration" "opensearch_dashboards-opensearch_main-integration" 
 
 # integrate the s3/azure integrator with the opensearch main
 resource "juju_integration" "backups_integrator-opensearch_main-integration" {
-  model = var.main.model
+  model_uuid = var.main.model_uuid
 
   application {
     name = juju_application.backups-integrator.name
@@ -152,7 +152,7 @@ resource "juju_integration" "backups_integrator-opensearch_main-integration" {
 
 # integrate the data integrator with the opensearch main
 resource "juju_integration" "data_integrator-opensearch_main-integration" {
-  model = var.main.model
+  model_uuid = var.main.model_uuid
 
   application {
     name = juju_application.data-integrator.name
@@ -170,22 +170,22 @@ resource "juju_integration" "data_integrator-opensearch_main-integration" {
 # Integrate the grafana-agent in each model with all the opensearch apps
 resource "juju_integration" "grafana_agent_opensearch_integrations" {
   for_each = merge([
-    for model, apps in local.opensearch_apps_per_model : {
+    for model_uuid, apps in local.opensearch_apps_per_model : {
       for app in apps : "${model}-${app}" => {
-        model = model
-        app   = app
+        model_uuid = model_uuid
+        app        = app
       }
     }
   ]...)
 
-  model = each.value.model
+  model_uuid = each.value.model_uuid
 
   application {
     name = each.value.app
   }
 
   application {
-    name = juju_application.grafana_agents[each.value.model].name
+    name = juju_application.grafana_agents[each.value.model_uuid].name
   }
 
   depends_on = [
@@ -196,10 +196,10 @@ resource "juju_integration" "grafana_agent_opensearch_integrations" {
 
 # Integrate the grafana-agent in the main model with the opensearch-dashboards apps
 resource "juju_integration" "grafana_agent_opensearch-dashboards_integrations" {
-  model = var.main.model
+  model_uuid = var.main.model_uuid
 
   application {
-    name = juju_application.grafana_agents[var.main.model].name
+    name = juju_application.grafana_agents[var.main.model_uuid].name
   }
   application {
     name = var.opensearch-dashboards.app_name
