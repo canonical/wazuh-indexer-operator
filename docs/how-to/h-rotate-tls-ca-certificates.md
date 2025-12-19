@@ -87,7 +87,7 @@ The distribution of certificates must follow a specific order. The leader unit i
 
 This process needs to be repeated for each unit in the OpenSearch cluster. Once all the units have the new CA certificate, the OpenSearch cluster will update the TLS certificates on the nodes, either by reloading them via API or by triggering a rolling restart of the OpenSearch cluster. Restarting to apply the new TLS certificates is only required if the issuer, the subject or the subject alternative names (sans) of the new certificate are different than before. If they stay the same, the new TLS certificates can be reloaded on the fly.
 
-As indicated in the ["Check certificates in use" section of How to enable TLS encryption](https://charmhub.io/opensearch/docs/h-enable-tls#check-certificates-in-use), you can check the certificates in use by running the following command:
+As indicated in the ["Check certificates in use" section of How to enable TLS encryption](https://canonical-charmed-opensearch.readthedocs-hosted.com/2/how-to/tls-encryption/enable-tls-encryption/#check-certificates-in-use), you can check the certificates in use by running the following command:
 
 ```bash
 openssl s_client -showcerts -connect `leader_unit_IP:port` < /dev/null | grep issuer
