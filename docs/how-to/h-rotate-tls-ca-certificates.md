@@ -30,7 +30,7 @@ Where `<category>` is one of `app-admin`, `unit-transport`, or `unit-http`.
 
 This will automatically generate a new private key and regenerate the certificate signing request (CSR) for the specified category. The new CSR will be sent to the operator you are using to provide the certificates for signing. Once the new certificate is signed, it will be automatically applied to the OpenSearch cluster.
 
-For more information on the different approaches to update the key please refer to the ["Update keys" section of How to enable TLS encryption](https://charmhub.io/opensearch/docs/h-enable-tls#update-keys).
+For more information on the different approaches to update the key please refer to the ["Update keys" section of How to enable TLS encryption](https://canonical-charmed-opensearch.readthedocs-hosted.com/2/how-to/tls-encryption/enable-tls-encryption/#update-keys).
 
 <!-- vale Canonical.007-Headings-sentence-case = NO -->
 ## Rotation of CA certificates
@@ -54,7 +54,7 @@ Upon receiving the information about the revoked TLS certificates, the OpenSearc
 
 Until the rolling restart is complete, the OpenSearch cluster will ignore the new TLS certificates and not apply them to the nodes. This will only be done once all nodes in the cluster have updated the new CA and can communicate using the newly issued TLS certificates.
 
-As indicated in the ["Check certificates in use" section of How to enable TLS encryption](https://charmhub.io/opensearch/docs/h-enable-tls#check-certificates-in-use), you can check the certificates in use by running the following command:
+As indicated in the ["Check certificates in use" section of How to enable TLS encryption](https://canonical-charmed-opensearch.readthedocs-hosted.com/2/how-to/tls-encryption/enable-tls-encryption/#check-certificates-in-use), you can check the certificates in use by running the following command:
 
 ```bash
 openssl s_client -showcerts -connect `leader_unit_IP:port` < /dev/null | grep issuer
