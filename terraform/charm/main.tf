@@ -17,4 +17,8 @@ resource "juju_application" "wazuh_indexer" {
   units       = var.units
 
   expose {}
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
