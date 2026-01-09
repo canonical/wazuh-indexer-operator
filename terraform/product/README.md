@@ -3,14 +3,14 @@
 
 | Name | Version |
 |------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >=0.17.2 |
-| <a name="requirement_juju"></a> [juju](#requirement\_juju) | >= 0.19.0 |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.6.6 |
+| <a name="requirement_juju"></a> [juju](#requirement\_juju) | ~> 1.1.1 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_juju"></a> [juju](#provider\_juju) | >= 0.19.0 |
+| <a name="provider_juju"></a> [juju](#provider\_juju) | ~> 1.1.1 |
 
 ## Modules
 
@@ -33,7 +33,7 @@
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_grafana_agent"></a> [grafana\_agent](#input\_grafana\_agent) | n/a | <pre>object({<br/>    app_name = optional(string, "grafana-agent")<br/>    channel  = optional(string, "latest/stable")<br/>    config   = optional(map(string), {})<br/>    revision = optional(number)<br/>  })</pre> | n/a | yes |
-| <a name="input_model"></a> [model](#input\_model) | Reference to the VM Juju model to deploy the indexer charms to. | `string` | n/a | yes |
+| <a name="input_model_uuid"></a> [model\_uuid](#input\_model\_uuid) | Reference to the VM Juju model to deploy the indexer charms to. | `string` | n/a | yes |
 | <a name="input_sysconfig"></a> [sysconfig](#input\_sysconfig) | n/a | <pre>object({<br/>    app_name = optional(string, "sysconfig")<br/>    channel  = optional(string, "latest/stable")<br/>    revision = optional(number)<br/>  })</pre> | n/a | yes |
 | <a name="input_wazuh_indexer"></a> [wazuh\_indexer](#input\_wazuh\_indexer) | n/a | <pre>object({<br/>    app_name    = optional(string, "wazuh-indexer")<br/>    channel     = optional(string, "4.11/edge")<br/>    config      = optional(map(string), {})<br/>    constraints = optional(string, "arch=amd64")<br/>    revision    = optional(number)<br/>    base        = optional(string, "ubuntu@22.04")<br/>    units       = optional(number, 3)<br/>  })</pre> | n/a | yes |
 
