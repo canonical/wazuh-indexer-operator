@@ -73,7 +73,7 @@ Charmed OpenSearch supports the password [authentication](https://canonical-char
 
 Charmed OpenSearch provides native integration with the [Canonical Observability Stack (COS)](https://charmhub.io/topics/canonical-observability-stack). To reduce the blast radius of infrastructure disruptions, the general recommendation is to deploy COS and the observed application into separate environments, isolated from one another. Refer to the [COS production deployments best practices](https://charmhub.io/topics/canonical-observability-stack/reference/best-practices) for more information.
 
-For instructions, see the [How to integrate the Charmed OpenSearch deployment with COS](https://charmhub.io/opensearch/docs/h-monitoring) guide.
+For instructions, see the [How to integrate the Charmed OpenSearch deployment with COS](https://canonical-charmed-opensearch.readthedocs-hosted.com/2/how-to/monitoring-cos/) guide.
 
 ## Additional resources
 
