@@ -13,6 +13,8 @@ platforms:
 # - actions.yaml, config.yaml, metadata.yaml
 #   (https://github.com/canonical/charmcraft/blob/9ff19c328e23b50cc06f04e8a5ad4835740badf4/charmcraft/services/package.py#L290-L293
 #   https://github.com/canonical/charmcraft/blob/9ff19c328e23b50cc06f04e8a5ad4835740badf4/charmcraft/services/package.py#L156-L157)
+links:
+  documentation: https://discourse.charmhub.io/t/wazuh-indexer-documentation-overview/16071
 parts:
   # "poetry-deps" part name is a magic constant
   # https://github.com/canonical/craft-parts/pull/901

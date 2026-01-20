@@ -57,23 +57,23 @@ Charmed OpenSearch and Charmed OpenSearch Dashboards currently run on top of Ubu
 
 Charmed OpenSearch and Charmed OpenSearch Dashboards operators install a pinned revision of the [Charmed OpenSearch snap](https://snapcraft.io/opensearch) and [Charmed OpenSearch Dashboards snap](https://snapcraft.io/opensearch-dashboards), respectively, to provide reproducible and secure environments.
 
-New versions of Charmed OpenSearch and Charmed OpenSearch Dashboards may be released to provide patching of vulnerabilities (CVEs). It is important to refresh the charm regularly to make sure the workload is as secure as possible. For more information on how to refresh the charm, see the [how-to upgrade](https://charmhub.io/opensearch/docs/h-minor-upgrade) guide.
+New versions of Charmed OpenSearch and Charmed OpenSearch Dashboards may be released to provide patching of vulnerabilities (CVEs). It is important to refresh the charm regularly to make sure the workload is as secure as possible. For more information on how to refresh the charm, see the [how-to upgrade](https://canonical-charmed-opensearch.readthedocs-hosted.com/2/how-to/upgrade/perform-a-minor-upgrade/) guide.
 
 ### Encryption
 
 Charmed OpenSearch is deployed with encryption enabled. To do that, you need to relate Charmed OpenSearch and Charmed OpenSearch Dashboards to one of the TLS certificate operator charms. Please refer to the [Charming Security page](https://charmhub.io/topics/security-with-x-509-certificates) for more information on how to select the right certificate provider for your use case.
 
-For more information on encryption, see the [Cryptography](https://discourse.charmhub.io/t/charmed-opensearch-explanation-cryptography/17243) explanation page and the [How to enable encryption](https://charmhub.io/opensearch/docs/h-enable-tls) guide.
+For more information on encryption, see the [Cryptography](https://discourse.charmhub.io/t/charmed-opensearch-explanation-cryptography/17243) explanation page and the [How to enable encryption](https://canonical-charmed-opensearch.readthedocs-hosted.com/2/how-to/tls-encryption/) guide.
 
 ### Authentication
 
-Charmed OpenSearch supports the password [authentication](https://charmhub.io/opensearch/docs/t-passwords)
+Charmed OpenSearch supports the password [authentication](https://canonical-charmed-opensearch.readthedocs-hosted.com/2/tutorial/5-manage-passwords/).
 
 ### Monitoring
 
 Charmed OpenSearch provides native integration with the [Canonical Observability Stack (COS)](https://charmhub.io/topics/canonical-observability-stack). To reduce the blast radius of infrastructure disruptions, the general recommendation is to deploy COS and the observed application into separate environments, isolated from one another. Refer to the [COS production deployments best practices](https://charmhub.io/topics/canonical-observability-stack/reference/best-practices) for more information.
 
-For instructions, see the [How to integrate the Charmed OpenSearch deployment with COS](https://charmhub.io/opensearch/docs/h-monitoring) guide.
+For instructions, see the [How to integrate the Charmed OpenSearch deployment with COS](https://canonical-charmed-opensearch.readthedocs-hosted.com/2/how-to/monitoring-cos/) guide.
 
 ## Additional resources
 

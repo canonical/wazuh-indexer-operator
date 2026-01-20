@@ -3,7 +3,7 @@
 
 Charmed OpenSearch Revision 168 has been deployed to the [`2/stable` channel](https://charmhub.io/opensearch?channel=2/stable) on Charmhub.
 
-To upgrade from a previous revision of the OpenSearch charm, see [how to perform a minor upgrade](https://charmhub.io/opensearch/docs/h-minor-upgrade).
+To upgrade from a previous revision of the OpenSearch charm, see [how to perform a minor upgrade](https://canonical-charmed-opensearch.readthedocs-hosted.com/2/how-to/upgrade/perform-a-minor-upgrade/).
 
 ## Summary
 * [Highlights and features](#highlights)
