@@ -19,11 +19,11 @@ This operator provides an Wazuh Indexer cluster, with:
 - Safe horizontal scale-down/up
 - Large deployments
 
-The Operator in this repository is a Python project installing and managing Wazuh Indexer installed from the [Wazuh Indexer Snap](https://snapcraft.io/wazuh-indexer), providing lifecycle management and handling events (install, start, etc).
+The Operator in this repository is a Python project installing and managing Wazuh Indexer installed from the [Wazuh Indexer Snap](https://snapcraft.io/wazuh-indexer), providing lifecycle management and handling events (install, start...).
 
 ## Usage
 
-Bootstrap a [lxd controller](https://documentation.ubuntu.com/juju/3.6/reference/cloud/list-of-supported-clouds/the-lxd-cloud-and-juju/) to juju and create a model:
+Bootstrap a [LXD controller](https://documentation.ubuntu.com/juju/3.6/reference/cloud/list-of-supported-clouds/the-lxd-cloud-and-juju/) to Juju and create a model:
 
 ```shell
 juju add-model wazuh-indexer
@@ -83,14 +83,14 @@ Charmed Wazuh Indexer also allows to form large clusters or join an existing dep
 juju integrate main:peer-cluster-orchestrator data-hot:peer-cluster
 ```
 
-## TLS:
+## TLS
 
 The Charmed Wazuh Indexer Operator also supports TLS encryption as a first class citizen, on both the HTTP and Transport layers. 
 TLS is enabled by default and is a requirement for the charm to start.
 
 The charm relies on the `tls-certificates` interface.
 
-#### 1. Self-signed certificates:
+#### Self-signed certificates
 ```shell
 # Deploy the self-signed TLS Certificates Operator.
 juju deploy self-signed-certificates --channel=latest/stable
@@ -112,7 +112,7 @@ juju remove-relation wazuh-indexer self-signed-certificates
 **Note:** The TLS settings shown here are for self-signed-certificates, which are not recommended for production clusters. The Self Signed Certificates Operator offers a variety of configuration options. Read more on the TLS Certificates Operator [here](https://charmhub.io/self-signed-certificates).
 
 ## Security
-Security issues in the Charmed Wazuh Indexer Operator can be reported through [LaunchPad](https://wiki.ubuntu.com/DebuggingSecurity#How%20to%20File). Please do not file GitHub issues about security issues.
+Security issues in the Charmed Wazuh Indexer Operator can be reported through [Launchpad](https://wiki.ubuntu.com/DebuggingSecurity#How%20to%20File). Please do not file GitHub issues about security issues.
 
 ## Contributing
 
