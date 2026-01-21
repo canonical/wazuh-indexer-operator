@@ -12,6 +12,8 @@ from charms.opensearch.v0.constants_charm import InstallError, InstallProgress
 from charms.opensearch.v0.helper_cos import update_grafana_dashboards_title
 from charms.opensearch.v0.models import PerformanceType
 from charms.opensearch.v0.opensearch_base_charm import OpenSearchBaseCharm
+from charms.opensearch.v0.opensearch_config import OpenSearchConfig
+from charms.opensearch.v0.opensearch_distro import OpenSearchDistribution
 from charms.opensearch.v0.opensearch_exceptions import OpenSearchInstallError
 from ops.charm import InstallEvent
 from ops.main import main
@@ -24,7 +26,30 @@ from opensearch import OpenSearchSnap
 logger = logging.getLogger(__name__)
 
 
-class OpenSearchOperatorCharm(OpenSearchBaseCharm):
+class OpenSearchCharmConfig(OpenSearchConfig):
+    """This class covers the configuration changes depending on certain actions."""
+
+    def __init__(self, opensearch: OpenSearchDistribution):
+        super().__init__(opensearch)
+
+    def set_node(self) -> None:
+        """Set base config for each node in the cluster."""
+        super().set_node()
+        super()._opensearch.config.put(
+            super().CONFIG_YML,
+            "plugins.security.audit.type",
+            "internal_opensearch",
+        )
+
+class OpenSearchCharm(OpenSearchBaseCharm):
+    """Base class for OpenSearch charms."""
+
+    def __init__(self, *args, _: typing.Type[OpenSearchDistribution] = None):
+        super().__init__(*args)
+        super().opensearch_config = OpenSearchCharmConfig(super().opensearch)
+
+
+class OpenSearchOperatorCharm(OpenSearchCharm):
     """This class represents the machine charm for OpenSearch."""
 
     def __init__(self, *args):
