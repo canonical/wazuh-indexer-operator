@@ -32,9 +32,9 @@ class OpenSearchCharmConfig(OpenSearchConfig):
     def __init__(self, opensearch: OpenSearchDistribution):
         super().__init__(opensearch)
 
-    def set_node(self) -> None:
+    def set_node(self, *args) -> None:
         """Set base config for each node in the cluster."""
-        super().set_node()
+        super().set_node(*args)
         self._opensearch.config.put(
             self.CONFIG_YML,
             "plugins.security.audit.type",
