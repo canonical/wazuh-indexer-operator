@@ -106,14 +106,14 @@ module "opensearch" {
 
 | Name | Version |
 |------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.6 |
-| <a name="requirement_juju"></a> [juju](#requirement\_juju) | >= 0.20.0 |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.6.6 |
+| <a name="requirement_juju"></a> [juju](#requirement\_juju) | ~> 1.1.1 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_juju"></a> [juju](#provider\_juju) | >= 0.20.0 |
+| <a name="provider_juju"></a> [juju](#provider\_juju) | ~> 1.1.1 |
 
 ## Modules
 
@@ -138,10 +138,10 @@ module "opensearch" {
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_apps"></a> [apps](#input\_apps) | Non orchestrator apps (e.g: ml, data.hot etc.) | <pre>list(object({<br/>    app_name          = string<br/>    model             = string<br/>    config            = optional(map(string), { "init_hold" : "true" })<br/>    channel           = optional(string, "2/stable")<br/>    base              = optional(string, "ubuntu@22.04")<br/>    revision          = optional(string, null)<br/>    units             = optional(number, 3)<br/>    constraints       = optional(string, "arch=amd64")<br/>    machines          = optional(list(string), [])<br/>    storage           = optional(map(string), {})<br/>    endpoint_bindings = optional(map(string), {})<br/>    expose            = optional(bool, false)<br/>  }))</pre> | `null` | no |
+| <a name="input_apps"></a> [apps](#input\_apps) | Non orchestrator apps (e.g: ml, data.hot etc.) | <pre>list(object({<br/>    app_name          = string<br/>    model_uuid        = string<br/>    config            = optional(map(string), { "init_hold" : "true" })<br/>    channel           = optional(string, "2/stable")<br/>    base              = optional(string, "ubuntu@22.04")<br/>    revision          = optional(string, null)<br/>    units             = optional(number, 3)<br/>    constraints       = optional(string, "arch=amd64")<br/>    machines          = optional(list(string), [])<br/>    storage           = optional(map(string), {})<br/>    endpoint_bindings = optional(map(string), {})<br/>    expose            = optional(bool, false)<br/>  }))</pre> | `null` | no |
 | <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | The cluster name of the fleet. | `string` | `"opensearch"` | no |
-| <a name="input_failover"></a> [failover](#input\_failover) | Failover orchestrator app definition | <pre>object({<br/>    app_name          = string<br/>    model             = string<br/>    config            = optional(map(string), { "init_hold" : "true" })<br/>    channel           = optional(string, "2/stable")<br/>    base              = optional(string, "ubuntu@22.04")<br/>    revision          = optional(string, null)<br/>    units             = optional(number, 3)<br/>    constraints       = optional(string, "arch=amd64")<br/>    machines          = optional(list(string), [])<br/>    storage           = optional(map(string), {})<br/>    endpoint_bindings = optional(map(string), {})<br/>    expose            = optional(bool, false)<br/>  })</pre> | `null` | no |
-| <a name="input_main"></a> [main](#input\_main) | Main orchestrator app definition | <pre>object({<br/>    app_name          = string<br/>    model             = string<br/>    config            = optional(map(string), {})<br/>    channel           = optional(string, "2/stable")<br/>    base              = optional(string, "ubuntu@22.04")<br/>    revision          = optional(string, null)<br/>    units             = optional(number, 3)<br/>    constraints       = optional(string, "arch=amd64")<br/>    machines          = optional(list(string), [])<br/>    storage           = optional(map(string), {})<br/>    endpoint_bindings = optional(map(string), {})<br/>    expose            = optional(bool, false)<br/>  })</pre> | n/a | yes |
+| <a name="input_failover"></a> [failover](#input\_failover) | Failover orchestrator app definition | <pre>object({<br/>    app_name          = string<br/>    model_uuid        = string<br/>    config            = optional(map(string), { "init_hold" : "true" })<br/>    channel           = optional(string, "2/stable")<br/>    base              = optional(string, "ubuntu@22.04")<br/>    revision          = optional(string, null)<br/>    units             = optional(number, 3)<br/>    constraints       = optional(string, "arch=amd64")<br/>    machines          = optional(list(string), [])<br/>    storage           = optional(map(string), {})<br/>    endpoint_bindings = optional(map(string), {})<br/>    expose            = optional(bool, false)<br/>  })</pre> | `null` | no |
+| <a name="input_main"></a> [main](#input\_main) | Main orchestrator app definition | <pre>object({<br/>    app_name          = string<br/>    model_uuid        = string<br/>    config            = optional(map(string), {})<br/>    channel           = optional(string, "2/stable")<br/>    base              = optional(string, "ubuntu@22.04")<br/>    revision          = optional(string, null)<br/>    units             = optional(number, 3)<br/>    constraints       = optional(string, "arch=amd64")<br/>    machines          = optional(list(string), [])<br/>    storage           = optional(map(string), {})<br/>    endpoint_bindings = optional(map(string), {})<br/>    expose            = optional(bool, false)<br/>  })</pre> | n/a | yes |
 | <a name="input_self-signed-certificates"></a> [self-signed-certificates](#input\_self-signed-certificates) | Configuration for the self-signed-certificates app | <pre>object({<br/>    channel     = optional(string, "latest/stable")<br/>    revision    = optional(string, null)<br/>    base        = optional(string, "ubuntu@22.04")<br/>    constraints = optional(string, "arch=amd64")<br/>    machines    = optional(list(string), [])<br/>    config      = optional(map(string), { "ca-common-name" : "CA" })<br/>  })</pre> | `{}` | no |
 
 ## Outputs
