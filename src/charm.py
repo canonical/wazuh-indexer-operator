@@ -45,7 +45,6 @@ class OpenSearchCharmConfig(OpenSearchConfig):
     ) -> None:
         """Set base config for each node in the cluster."""
         super().set_node(
-            self,
             app,
             cluster_name,
             unit_name,
