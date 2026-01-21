@@ -41,11 +41,12 @@ class OpenSearchCharmConfig(OpenSearchConfig):
             "internal_opensearch",
         )
 
+
 class OpenSearchCharm(OpenSearchBaseCharm):
     """Base class for OpenSearch charms."""
 
     def __init__(self, *args, _: typing.Type[OpenSearchDistribution] = None):
-        super().__init__(*args)
+        super().__init__(*args, distro=OpenSearchSnap)  # OpenSearchTarball
         super().opensearch_config = OpenSearchCharmConfig(super().opensearch)
 
 
