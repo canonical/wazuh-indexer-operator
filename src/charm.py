@@ -35,8 +35,8 @@ class OpenSearchCharmConfig(OpenSearchConfig):
     def set_node(self) -> None:
         """Set base config for each node in the cluster."""
         super().set_node()
-        super()._opensearch.config.put(
-            super().CONFIG_YML,
+        self._opensearch.config.put(
+            self.CONFIG_YML,
             "plugins.security.audit.type",
             "internal_opensearch",
         )
@@ -47,7 +47,7 @@ class OpenSearchCharm(OpenSearchBaseCharm):
 
     def __init__(self, *args, _: typing.Type[OpenSearchDistribution] = None):
         super().__init__(*args, distro=OpenSearchSnap)  # OpenSearchTarball
-        super().opensearch_config = OpenSearchCharmConfig(super().opensearch)
+        self.opensearch_config = OpenSearchCharmConfig(self.opensearch)
 
 
 class OpenSearchOperatorCharm(OpenSearchCharm):
