@@ -217,6 +217,7 @@ class TestOpenSearchConfig(unittest.TestCase):
         self.assertEqual(
             opensearch_conf["plugins.security.ssl.transport.enforce_hostname_verification"], True
         )
+        self.assertEqual(opensearch_conf["plugins.security.audit.type"], "internal_opensearch")
 
         # test cleanup_conf_if_bootstrapped
         self.opensearch_config.cleanup_bootstrap_conf()

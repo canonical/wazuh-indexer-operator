@@ -10,8 +10,10 @@ import typing
 import ops
 from charms.opensearch.v0.constants_charm import InstallError, InstallProgress
 from charms.opensearch.v0.helper_cos import update_grafana_dashboards_title
-from charms.opensearch.v0.models import PerformanceType
+from charms.opensearch.v0.models import App, PerformanceType
 from charms.opensearch.v0.opensearch_base_charm import OpenSearchBaseCharm
+from charms.opensearch.v0.opensearch_config import OpenSearchConfig
+from charms.opensearch.v0.opensearch_distro import OpenSearchDistribution
 from charms.opensearch.v0.opensearch_exceptions import OpenSearchInstallError
 from ops.charm import InstallEvent
 from ops.main import main
@@ -24,11 +26,54 @@ from opensearch import OpenSearchSnap
 logger = logging.getLogger(__name__)
 
 
-class OpenSearchOperatorCharm(OpenSearchBaseCharm):
-    """This class represents the machine charm for OpenSearch."""
+class OpenSearchCharmConfig(OpenSearchConfig):
+    """This class covers the configuration changes depending on certain actions."""
+
+    def __init__(self, opensearch: OpenSearchDistribution):
+        super().__init__(opensearch)
+
+    def set_node(
+        self,
+        app: App,
+        cluster_name: str,
+        unit_name: str,
+        roles: typing.List[str],
+        cm_names: typing.List[str],
+        cm_ips: typing.List[str],
+        contribute_to_bootstrap: bool,
+        node_temperature: typing.Optional[str] = None,
+    ) -> None:
+        """Set base config for each node in the cluster."""
+        super().set_node(
+            app,
+            cluster_name,
+            unit_name,
+            roles,
+            cm_names,
+            cm_ips,
+            contribute_to_bootstrap,
+            node_temperature,
+        )
+        self._opensearch.config.put(
+            self.CONFIG_YML,
+            "plugins.security.audit.type",
+            "internal_opensearch",
+        )
+
+
+class OpenSearchCharm(OpenSearchBaseCharm):
+    """Base class for OpenSearch charms."""
 
     def __init__(self, *args):
         super().__init__(*args, distro=OpenSearchSnap)  # OpenSearchTarball
+        self.opensearch_config = OpenSearchCharmConfig(self.opensearch)
+
+
+class OpenSearchOperatorCharm(OpenSearchCharm):
+    """This class represents the machine charm for OpenSearch."""
+
+    def __init__(self, *args):
+        super().__init__(*args)
 
         self.framework.observe(self.on.install, self._on_install)
         self.framework.observe(self.on.upgrade_charm, self._on_upgrade_charm)
