@@ -10,7 +10,7 @@ import typing
 import ops
 from charms.opensearch.v0.constants_charm import InstallError, InstallProgress
 from charms.opensearch.v0.helper_cos import update_grafana_dashboards_title
-from charms.opensearch.v0.models import PerformanceType
+from charms.opensearch.v0.models import App, PerformanceType
 from charms.opensearch.v0.opensearch_base_charm import OpenSearchBaseCharm
 from charms.opensearch.v0.opensearch_config import OpenSearchConfig
 from charms.opensearch.v0.opensearch_distro import OpenSearchDistribution
@@ -32,9 +32,29 @@ class OpenSearchCharmConfig(OpenSearchConfig):
     def __init__(self, opensearch: OpenSearchDistribution):
         super().__init__(opensearch)
 
-    def set_node(self, *args) -> None:
+    def set_node(
+        self,
+        app: App,
+        cluster_name: str,
+        unit_name: str,
+        roles: typing.List[str],
+        cm_names: typing.List[str],
+        cm_ips: typing.List[str],
+        contribute_to_bootstrap: bool,
+        node_temperature: typing.Optional[str] = None,
+    ) -> None:
         """Set base config for each node in the cluster."""
-        super().set_node(*args)
+        super().set_node(
+            self,
+            app,
+            cluster_name,
+            unit_name,
+            roles,
+            cm_names,
+            cm_ips,
+            contribute_to_bootstrap,
+            node_temperature,
+        )
         self._opensearch.config.put(
             self.CONFIG_YML,
             "plugins.security.audit.type",
