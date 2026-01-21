@@ -54,7 +54,7 @@ class OpenSearchOperatorCharm(OpenSearchCharm):
     """This class represents the machine charm for OpenSearch."""
 
     def __init__(self, *args):
-        super().__init__(*args)  # OpenSearchTarball
+        super().__init__(*args)
 
         self.framework.observe(self.on.install, self._on_install)
         self.framework.observe(self.on.upgrade_charm, self._on_upgrade_charm)
