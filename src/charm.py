@@ -45,7 +45,7 @@ class OpenSearchCharmConfig(OpenSearchConfig):
 class OpenSearchCharm(OpenSearchBaseCharm):
     """Base class for OpenSearch charms."""
 
-    def __init__(self, *args, _: typing.Type[OpenSearchDistribution] = None):
+    def __init__(self, *args):
         super().__init__(*args, distro=OpenSearchSnap)  # OpenSearchTarball
         self.opensearch_config = OpenSearchCharmConfig(self.opensearch)
 
@@ -54,7 +54,7 @@ class OpenSearchOperatorCharm(OpenSearchCharm):
     """This class represents the machine charm for OpenSearch."""
 
     def __init__(self, *args):
-        super().__init__(*args, distro=OpenSearchSnap)  # OpenSearchTarball
+        super().__init__(*args)  # OpenSearchTarball
 
         self.framework.observe(self.on.install, self._on_install)
         self.framework.observe(self.on.upgrade_charm, self._on_upgrade_charm)
