@@ -74,14 +74,14 @@ tf apply terraform.out
 
 | Name | Version |
 |------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.6 |
-| <a name="requirement_juju"></a> [juju](#requirement\_juju) | >= 0.20.0 |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.6.6 |
+| <a name="requirement_juju"></a> [juju](#requirement\_juju) | ~> 1.1.1 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_juju"></a> [juju](#provider\_juju) | >= 0.20.0 |
+| <a name="provider_juju"></a> [juju](#provider\_juju) | ~> 1.1.1 |
 
 ## Modules
 
@@ -111,7 +111,7 @@ tf apply terraform.out
 | <a name="input_backups-integrator"></a> [backups-integrator](#input\_backups-integrator) | Configuration for the backup integrator | <pre>object({<br/>    storage_type = optional(string, "s3")<br/>    config       = map(string)<br/>    channel      = optional(string, "latest/edge")<br/>    base         = optional(string, "ubuntu@22.04")<br/>    revision     = optional(string, null)<br/>    constraints  = optional(string, "arch=amd64")<br/>    machines     = optional(list(string), [])<br/>  })</pre> | n/a | yes |
 | <a name="input_data-integrator"></a> [data-integrator](#input\_data-integrator) | Configuration for the data-integrator | <pre>object({<br/>    config      = optional(map(string), { "index-name" : "test", "extra-user-roles" : "admin" })<br/>    channel     = optional(string, "latest/edge")<br/>    base        = optional(string, "ubuntu@22.04")<br/>    revision    = optional(string, null)<br/>    constraints = optional(string, "arch=amd64")<br/>    machines    = optional(list(string), [])<br/>  })</pre> | `{}` | no |
 | <a name="input_grafana-agent"></a> [grafana-agent](#input\_grafana-agent) | Configuration for the grafana-agent | <pre>object({<br/>    channel     = optional(string, "1/stable")<br/>    revision    = optional(string, null)<br/>    base        = optional(string, "ubuntu@22.04")<br/>    constraints = optional(string, "arch=amd64")<br/>    config      = optional(map(string), {})<br/>  })</pre> | `{}` | no |
-| <a name="input_opensearch"></a> [opensearch](#input\_opensearch) | OpenSearch app definition | <pre>object({<br/>    app_name          = optional(string, "opensearch")<br/>    model             = string<br/>    config            = optional(map(string), { "cluster_name" : "opensearch" })<br/>    channel           = optional(string, "2/stable")<br/>    base              = optional(string, "ubuntu@22.04")<br/>    revision          = optional(string, null)<br/>    units             = optional(number, 3)<br/>    constraints       = optional(string, "arch=amd64")<br/>    machines          = optional(list(string), [])<br/>    storage           = optional(map(string), {})<br/>    endpoint_bindings = optional(map(string), {})<br/>    expose            = optional(bool, false)<br/>  })</pre> | n/a | yes |
+| <a name="input_opensearch"></a> [opensearch](#input\_opensearch) | OpenSearch app definition | <pre>object({<br/>    app_name          = optional(string, "opensearch")<br/>    model_uuid             = string<br/>    config            = optional(map(string), { "cluster_name" : "opensearch" })<br/>    channel           = optional(string, "2/stable")<br/>    base              = optional(string, "ubuntu@22.04")<br/>    revision          = optional(string, null)<br/>    units             = optional(number, 3)<br/>    constraints       = optional(string, "arch=amd64")<br/>    machines          = optional(list(string), [])<br/>    storage           = optional(map(string), {})<br/>    endpoint_bindings = optional(map(string), {})<br/>    expose            = optional(bool, false)<br/>  })</pre> | n/a | yes |
 | <a name="input_opensearch-dashboards"></a> [opensearch-dashboards](#input\_opensearch-dashboards) | OpenSearch Dashboards app definition | <pre>object({<br/>    app_name          = optional(string, "opensearch-dashboards")<br/>    config            = optional(map(string), {})<br/>    channel           = optional(string, "2/stable")<br/>    base              = optional(string, "ubuntu@22.04")<br/>    revision          = optional(string, null)<br/>    units             = optional(number, 1)<br/>    constraints       = optional(string, "arch=amd64")<br/>    machines          = optional(list(string), [])<br/>    endpoint_bindings = optional(map(string), {})<br/>    tls               = optional(bool, false)<br/>    expose            = optional(bool, false)<br/>  })</pre> | `{}` | no |
 | <a name="input_self-signed-certificates"></a> [self-signed-certificates](#input\_self-signed-certificates) | Configuration for the self-signed-certificates app | <pre>object({<br/>    channel     = optional(string, "latest/stable")<br/>    revision    = optional(string, null)<br/>    base        = optional(string, "ubuntu@22.04")<br/>    constraints = optional(string, "arch=amd64")<br/>    machines    = optional(list(string), [])<br/>    config      = optional(map(string), { "ca-common-name" : "CA" })<br/>  })</pre> | `{}` | no |
 
