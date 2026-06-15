@@ -9,7 +9,11 @@ Each revision is versioned by the date of the revision.
 ## 2026-06-15
 
 ### Fixed
-- Pin setuptools <82 for `jproperties` to fix charmcraft pack.
+- Pin setuptools <82 for `jproperties` to fix charmcraft pack. Also pin
+  `types-psutil`/`types-setuptools` to the newest releases that still build
+  with setuptools <82 (their build dependencies of `mypy`, pulled when
+  `charset-normalizer` builds from source, otherwise require setuptools >=82
+  and conflict with the pin above).
 
 ## 2025-08-22
 
