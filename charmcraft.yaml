@@ -58,7 +58,15 @@ parts:
       - libffi-dev  # Needed to build Python dependencies with Rust from source
       - libssl-dev  # Needed to build Python dependencies with Rust from source
       - pkg-config  # Needed to build Python dependencies with Rust from source
+    build-environment:
+      - PIP_CONSTRAINT: ${CRAFT_PART_BUILD}/pip-constraints.txt
     override-build: |
+      cat > "${CRAFT_PART_BUILD}/pip-constraints.txt" <<'EOF'
+      setuptools<82
+      types-psutil<7.2.2.20260402
+      types-setuptools<82.0.0.20260402
+      EOF
+
       # Workaround for https://github.com/canonical/charmcraft/issues/2068
       # rustup used to install rustc and cargo, which are needed to build Python dependencies with Rust from source
       if [[ "$CRAFT_PLATFORM" == ubuntu@20.04:* || "$CRAFT_PLATFORM" == ubuntu@22.04:* ]]
