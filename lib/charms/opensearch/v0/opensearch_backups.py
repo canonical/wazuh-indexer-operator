@@ -271,7 +271,9 @@ class BackupManager:
         """Returns a mapping of snapshot ids / state."""
         # Using the original request method, as we want to raise an http exception if we
         # cannot get the snapshot list.
-        response = self.charm.opensearch.request("GET", f"_snapshot/{self.repository}/_all")
+        response = self.charm.opensearch.request(
+            "GET", f"_snapshot/{self.repository}/_all", retries=6, timeout=10
+        )
         return {
             snapshot["snapshot"].upper(): {
                 "state": snapshot["state"],
