@@ -57,22 +57,27 @@ DataRoleRemovalForbidden = (
     "Removal of data role from current deployment not allowed - the data cannot be reallocated."
 )
 PClusterNoRelation = "Cannot start. Waiting for peer cluster relation..."
+PClusterOrchestratorsRemoved = (
+    "Main-cluster-orchestrator removed, and no failover cluster related."
+)
 PClusterWrongRelation = "Cluster name don't match with related cluster. Remove relation."
 PClusterWrongRolesProvided = "Cannot start cluster with current set of roles."
 PClusterNoDataNode = "Cannot run cluster with current roles. Waiting for data node..."
 PClusterWrongNodesCountForQuorum = (
-    "Even number of members in quorum if current unit started. Add or remove 1 unit."
+    "Less than 3 cluster-manager-eligible units in this cluster. Add more units."
 )
 PluginConfigError = "Unexpected error during plugin configuration, check the logs"
 BackupSetupFailed = "Backup setup failed, check logs for details"
-S3RelMissing = "Backup failover cluster missing S3 relation."
-S3RelShouldNotExist = "This unit should not be related to S3"
-S3RelDataIncomplete = "S3 relation data missing or incomplete."
-S3RelUneligible = "Only orchestrator clusters should relate to S3."
+BackupRelShouldNotExist = "This unit should not be related to backup relation"
+BackupRelDataIncomplete = "Backup relation data missing or incomplete."
+BackupRelUneligible = "Only orchestrator clusters should relate to backup relation."
 
 # Wait status
 RequestUnitServiceOps = "Requesting lock on operation: {}"
 BackupDeferRelBrokenAsInProgress = "Backup service cannot be stopped: backup in progress."
+PClusterWaitingForFailoverPromotion = (
+    "Main-cluster-orchestrator removed, waiting for failover promotion."
+)
 
 
 # Maintenance statuses
@@ -85,10 +90,10 @@ HorizontalScaleUpSuggest = "Horizontal scale up advised: {} shards unassigned."
 WaitingForOtherUnitServiceOps = "Waiting for other units to complete the ops on their service."
 NewIndexRequested = "new index {index} requested"
 RestoreInProgress = "Restore in progress..."
-PluginConfigCheck = "Plugin configuration check."
 BackupSetupStart = "Backup setup started."
 BackupConfigureStart = "Configuring backup service..."
 BackupInDisabling = "Disabling backup service..."
+PluginConfigCheck = "Plugin configuration check."
 
 # Relation Interfaces
 ClientRelationName = "opensearch-client"
@@ -114,7 +119,16 @@ ClientUsersDict = "client_relation_users"
 
 
 # Opensearch Snap revision
-OPENSEARCH_SNAP_REVISION = 5  # Keep in sync with `workload_version` file
+OPENSEARCH_SNAP_REVISION = 7  # Keep in sync with `workload_version` file
 
 # User-face Backup ID format
 OPENSEARCH_BACKUP_ID_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+
+S3_REPO_BASE_PATH = "/"
+S3_RELATION = "s3-credentials"
+AZURE_REPO_BASE_PATH = "/"
+AZURE_RELATION = "azure-credentials"
+
+OAUTH_RELATION = "oauth"
+
+PERFORMANCE_PROFILE = "profile"

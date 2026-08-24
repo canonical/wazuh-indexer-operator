@@ -5,6 +5,10 @@ import json
 import unittest
 from unittest.mock import ANY, MagicMock, PropertyMock, patch
 
+# Imports to simulate designated imports order
+# (Otherwise circular dependency may be reported,
+import charms.opensearch.v0.helper_cluster  # noqa
+import charms.opensearch.v0.opensearch_distro  # noqa
 import responses
 from charms.opensearch.v0.constants_charm import (
     ClientRelationName,
@@ -14,6 +18,7 @@ from charms.opensearch.v0.constants_charm import (
     NodeLockRelationName,
     PeerRelationName,
 )
+from charms.opensearch.v0.constants_tls import CertType
 from charms.opensearch.v0.helper_security import generate_password
 from charms.opensearch.v0.models import (
     App,
@@ -30,17 +35,16 @@ from ops.model import ActiveStatus, BlockedStatus
 from ops.testing import Harness
 
 from charm import OpenSearchOperatorCharm
-from tests.helpers import patch_network_get
 from tests.unit.helpers import mock_response_nodes, mock_response_root
 
 DASHBOARDS_CHARM = "opensearch-dashboards"
 
 
-@patch_network_get("1.1.1.1")
 class TestOpenSearchProvider(unittest.TestCase):
     def setUp(self):
         self.harness = Harness(OpenSearchOperatorCharm)
         self.addCleanup(self.harness.cleanup)
+        self.harness.add_network("1.1.1.1")
         self.harness.begin()
 
         self.charm = self.harness.charm
@@ -60,7 +64,9 @@ class TestOpenSearchProvider(unittest.TestCase):
 
         def mock_deployment_desc():
             return DeploymentDescription(
-                config=PeerClusterConfig(cluster_name="", init_hold=False, roles=[]),
+                config=PeerClusterConfig(
+                    cluster_name="", init_hold=False, roles=[], profile="production"
+                ),
                 start=StartMode.WITH_GENERATED_ROLES,
                 pending_directives=[],
                 typ=DeploymentType.MAIN_ORCHESTRATOR,
@@ -70,6 +76,7 @@ class TestOpenSearchProvider(unittest.TestCase):
 
         self.charm.opensearch_peer_cm.deployment_desc = mock_deployment_desc
 
+    @patch("charms.data_platform_libs.v0.data_interfaces.OpenSearchProvides._update_relation_data")
     @patch("charm.OpenSearchOperatorCharm._purge_users")
     @patch("charms.opensearch.v0.opensearch_distro.YamlConfigSetter.put")
     @patch("charms.opensearch.v0.opensearch_distro.OpenSearchDistribution.is_node_up")
@@ -102,6 +109,7 @@ class TestOpenSearchProvider(unittest.TestCase):
         _is_node_up,
         _,
         __,
+        ___,
     ):
         event = MagicMock()
         event.relation.id = 1
@@ -137,6 +145,7 @@ class TestOpenSearchProvider(unittest.TestCase):
         _set_credentials.assert_not_called()
         _set_version.assert_not_called()
 
+    @patch("charms.data_platform_libs.v0.data_interfaces.OpenSearchProvides._update_relation_data")
     @patch("charm.OpenSearchOperatorCharm._purge_users")
     @patch("charms.opensearch.v0.opensearch_distro.YamlConfigSetter.put")
     @patch("charms.opensearch.v0.opensearch_distro.OpenSearchDistribution.is_node_up")
@@ -169,6 +178,7 @@ class TestOpenSearchProvider(unittest.TestCase):
         _is_node_up,
         _,
         __,
+        ___,
     ):
         event = MagicMock()
         event.relation.id = 1
@@ -200,8 +210,19 @@ class TestOpenSearchProvider(unittest.TestCase):
 
     @patch("charms.opensearch.v0.opensearch_users.OpenSearchUserManager.create_user")
     @patch("charms.opensearch.v0.opensearch_users.OpenSearchUserManager.create_role")
+    @patch("charms.opensearch.v0.opensearch_users.OpenSearchUserManager.create_role_mapping")
+    @patch(
+        "charms.opensearch.v0.opensearch_relation_provider.OpenSearchProvider._get_relation_mapped_users"
+    )
     @patch("charms.opensearch.v0.opensearch_users.OpenSearchUserManager.patch_user")
-    def test_create_opensearch_users(self, _patch_user, _create_role, _create_user):
+    def test_create_opensearch_users(
+        self,
+        _patch_user,
+        _get_relation_mapped_users,
+        _create_role_mapping,
+        _create_role,
+        _create_user,
+    ):
         username = "username"
         hashed_pw = "my_cool_hash"
         extra_user_roles = "admin"
@@ -210,6 +231,8 @@ class TestOpenSearchProvider(unittest.TestCase):
         patches = [
             {"op": "replace", "path": "/opendistro_security_roles", "value": roles},
         ]
+        mapped_users = ["test_oidc"]
+        _get_relation_mapped_users.return_value = mapped_users
         self.opensearch_provider.create_opensearch_users(
             username, hashed_pw, index, extra_user_roles, relation_id=0
         )
@@ -222,6 +245,8 @@ class TestOpenSearchProvider(unittest.TestCase):
             ),
         )
         _create_user.assert_called_with(username, roles, hashed_pw)
+        _get_relation_mapped_users.assert_called_with(username)
+        _create_role_mapping.assert_called_with(username, mapped_users)
         _patch_user.assert_called_with(username, patches)
         assert self.harness.get_relation_data(self.peers_rel_id, self.charm.app.name)[
             ClientUsersDict
@@ -303,7 +328,10 @@ class TestOpenSearchProvider(unittest.TestCase):
         self.harness.update_relation_data(
             opensearch_relation,
             f"{DASHBOARDS_CHARM}",
-            {"requested-secrets": '["username", "password", "tls", "tls-ca", "uris"]'},
+            {
+                "index": "opensearch-dashboards-test",
+                "requested-secrets": '["username", "password", "tls", "tls-ca", "uris"]',
+            },
         )
         event = MagicMock()
         relation = MagicMock()
@@ -319,6 +347,11 @@ class TestOpenSearchProvider(unittest.TestCase):
         return_value={"status": 200, "version": {"number": "2.12"}},
     )
     @patch(
+        "charms.opensearch.v0.opensearch_distro.OpenSearchDistribution.version",
+        return_value="2.12",
+        new_callable=PropertyMock,
+    )
+    @patch(
         "charms.opensearch.v0.opensearch_distro.OpenSearchDistribution.is_node_up",
         return_value=True,
     )
@@ -331,7 +364,8 @@ class TestOpenSearchProvider(unittest.TestCase):
         __,
         _nodes,
         _is_node_up,
-        ____,  # ______
+        ____,
+        ______,
     ):
         self.harness.set_leader(True)
         node = MagicMock()
@@ -397,11 +431,22 @@ class TestOpenSearchProvider(unittest.TestCase):
     @patch("charms.opensearch.v0.opensearch_users.OpenSearchUserManager.remove_role")
     @patch("charms.opensearch.v0.opensearch_users.OpenSearchUserManager.create_role")
     @patch("charms.opensearch.v0.opensearch_users.OpenSearchUserManager.remove_user")
+    @patch("charms.opensearch.v0.opensearch_users.OpenSearchUserManager.create_role_mapping")
+    @patch(
+        "charms.opensearch.v0.opensearch_relation_provider.OpenSearchProvider._get_relation_mapped_users"
+    )
     @patch("charms.opensearch.v0.opensearch_users.OpenSearchUserManager.create_user")
     # Mocks to remove network operations
     @patch("socket.socket.connect")
     def test_avoid_removing_non_charmed_users_and_roles(
-        self, _, mock_create_user, mock_remove_user, mock_create_role, mock_remove_role
+        self,
+        _,
+        mock_create_user,
+        mock_get_relation_mapped_users,
+        mock_create_role_mapping,
+        mock_remove_user,
+        mock_create_role,
+        mock_remove_role,
     ):
 
         self.client_second_rel_id = self.harness.add_relation(ClientRelationName, "application")
@@ -454,6 +499,7 @@ class TestOpenSearchProvider(unittest.TestCase):
         mock_response_root(self.charm.unit_name, self.charm.opensearch.host)
         mock_response_nodes(self.charm.unit_name, self.charm.opensearch.host)
 
+        mock_get_relation_mapped_users.return_value = []
         # 1. Testing relation user creation
         self.harness.charm.opensearch_provider.create_opensearch_users(
             username=relation_user1,
@@ -464,7 +510,10 @@ class TestOpenSearchProvider(unittest.TestCase):
         )
         mock_create_user.assert_called_with(relation_user1, [relation_user1], "pw1")
         mock_create_role.assert_called_with(role_name=relation_user1, permissions=ANY)
+        mock_create_role_mapping.assert_called_with(relation_user1, [])
 
+        mapped_users = ["test_oidc"]
+        mock_get_relation_mapped_users.return_value = mapped_users
         self.harness.charm.opensearch_provider.create_opensearch_users(
             username=relation_user2,
             hashed_pwd="pw2",
@@ -474,6 +523,7 @@ class TestOpenSearchProvider(unittest.TestCase):
         )
         mock_create_user.assert_called_with(relation_user2, [relation_user2], "pw2")
         mock_create_role.assert_called_with(role_name=relation_user2, permissions=ANY)
+        mock_create_role_mapping.assert_called_with(relation_user2, mapped_users)
 
         assert self.harness.get_relation_data(self.peers_rel_id, f"{self.charm.app.name}") == {
             ClientUsersDict: json.dumps(
@@ -508,3 +558,21 @@ class TestOpenSearchProvider(unittest.TestCase):
         mock_remove_role.assert_called_once_with(
             f"{ClientRelationName}_{self.client_second_rel_id}"
         )
+
+    @patch("ops.model.Unit.is_leader")
+    @patch("charms.opensearch.v0.opensearch_secrets.OpenSearchSecrets.get_object")
+    def test_update_certs(
+        self,
+        mock_get_object,
+        mock_is_leader,
+    ):
+        event = MagicMock()
+        mock_get_object.return_value = {"some_expected_key": "some_value"}
+        mock_is_leader.return_value = True
+        try:
+            self.opensearch_provider.update_certs(event)
+        except KeyError as e:
+            self.assertEqual(str(e), "'chain'")
+        else:
+            self.fail("KeyError not raised")
+        mock_get_object.assert_called_once_with(Scope.APP, CertType.APP_ADMIN.val)

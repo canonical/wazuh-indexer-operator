@@ -13,6 +13,7 @@ from pytest_operator.plugin import OpsTest
 
 from ..helpers import APP_NAME as OPENSEARCH_APP_NAME
 from ..helpers import (
+    CONFIG_OPTS,
     MODEL_CONFIG,
     SERIES,
     get_application_unit_ids,
@@ -22,7 +23,7 @@ from ..helpers import (
     run_action,
 )
 from ..helpers_deployments import wait_until
-from ..tls.test_tls import TLS_CERTIFICATES_APP_NAME
+from ..tls.test_tls import TLS_CERTIFICATES_APP_NAME, TLS_STABLE_CHANNEL
 from .helpers import (
     get_application_relation_data,
     ip_to_url,
@@ -54,10 +55,8 @@ PROTECTED_INDICES = [
 ]
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
-@pytest.mark.group(1)
 @pytest.mark.abort_on_fail
-async def test_create_relation(ops_test: OpsTest, application_charm, opensearch_charm):
+async def test_create_relation(ops_test: OpsTest, application_charm, charm, series):
     """Test basic functionality of relation interface."""
     # Deploy both charms (multiple units for each application to test that later they correctly
     # set data in the relation application databag using only the leader unit).
@@ -65,7 +64,9 @@ async def test_create_relation(ops_test: OpsTest, application_charm, opensearch_
     new_model_conf["update-status-hook-interval"] = "1m"
 
     config = {"ca-common-name": "CN_CA"}
-    await ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="latest/stable", config=config)
+    await ops_test.model.deploy(
+        TLS_CERTIFICATES_APP_NAME, channel=TLS_STABLE_CHANNEL, config=config
+    )
 
     await ops_test.model.set_config(new_model_conf)
     await asyncio.gather(
@@ -81,20 +82,22 @@ async def test_create_relation(ops_test: OpsTest, application_charm, opensearch_
             revision=3,
         ),
         ops_test.model.deploy(
-            opensearch_charm,
+            charm,
             application_name=OPENSEARCH_APP_NAME,
             num_units=NUM_UNITS,
-            series=SERIES,
+            series=series,
+            config=CONFIG_OPTS,
         ),
     )
     await ops_test.model.integrate(OPENSEARCH_APP_NAME, TLS_CERTIFICATES_APP_NAME)
-    wait_for_relation_joined_between(ops_test, OPENSEARCH_APP_NAME, TLS_CERTIFICATES_APP_NAME)
+    await ops_test.model.wait_for_idle(
+        apps=[TLS_CERTIFICATES_APP_NAME, OPENSEARCH_APP_NAME], status="active", timeout=1600
+    )
 
     global client_relation
     client_relation = await ops_test.model.integrate(
         f"{OPENSEARCH_APP_NAME}:{ClientRelationName}", f"{CLIENT_APP_NAME}:{FIRST_RELATION_NAME}"
     )
-    wait_for_relation_joined_between(ops_test, OPENSEARCH_APP_NAME, CLIENT_APP_NAME)
 
     # This test shouldn't take so long
     await ops_test.model.wait_for_idle(
@@ -108,8 +111,6 @@ async def test_create_relation(ops_test: OpsTest, application_charm, opensearch_
     )
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
-@pytest.mark.group(1)
 @pytest.mark.abort_on_fail
 async def test_index_usage(ops_test: OpsTest):
     """Check we can update and delete things.
@@ -147,8 +148,6 @@ async def test_index_usage(ops_test: OpsTest):
     )
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
-@pytest.mark.group(1)
 @pytest.mark.abort_on_fail
 async def test_bulk_index_usage(ops_test: OpsTest):
     """Check we can update and delete things using bulk api."""
@@ -189,9 +188,8 @@ async def test_bulk_index_usage(ops_test: OpsTest):
     assert set(artists) == {"Herbie Hancock", "Lydian Collective", "Vulfpeck"}
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
-@pytest.mark.group(1)
 @pytest.mark.abort_on_fail
+@pytest.mark.skip("Wazuh: as we are in compatibility mode, OS returns a 7.x version number")
 async def test_version(ops_test: OpsTest):
     """Check version reported in the databag is consistent with the version on the charm."""
     run_version_request = await run_request(
@@ -218,8 +216,6 @@ async def get_secret_data(ops_test, secret_uri):
     return json.loads(stdout)[secret_unique_id]["content"]["Data"]
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
-@pytest.mark.group(1)
 @pytest.mark.abort_on_fail
 async def test_dashboard_relation(ops_test: OpsTest):
     """Test we can create relations with admin permissions."""
@@ -251,8 +247,6 @@ async def test_dashboard_relation(ops_test: OpsTest):
     assert relation_user_pwd == result.response.get("password")
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
-@pytest.mark.group(1)
 @pytest.mark.abort_on_fail
 async def test_dashboard_relation_password_change(ops_test: OpsTest):
     """Test we can create relations with admin permissions."""
@@ -281,10 +275,7 @@ async def test_dashboard_relation_password_change(ops_test: OpsTest):
     assert relation_user_pwd == result.response.get("password")
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
-@pytest.mark.group(1)
 @pytest.mark.abort_on_fail
-@pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
 async def test_scaling(ops_test: OpsTest):
     """Test that scaling correctly updates endpoints in databag.
 
@@ -347,10 +338,8 @@ async def test_scaling(ops_test: OpsTest):
     ), await rel_endpoints(CLIENT_APP_NAME, FIRST_RELATION_NAME)
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
-@pytest.mark.group(1)
 @pytest.mark.abort_on_fail
-@pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
+# @pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
 async def test_multiple_relations(ops_test: OpsTest, application_charm):
     """Test that two different applications can connect to the database."""
     # scale-down for CI
@@ -414,10 +403,7 @@ async def test_multiple_relations(ops_test: OpsTest, application_charm):
     assert "403 Client Error: Forbidden for url:" in results[0], results
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
-@pytest.mark.group(1)
 @pytest.mark.abort_on_fail
-@pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
 async def test_multiple_relations_accessing_same_index(ops_test: OpsTest):
     """Test that two different applications can connect to the database."""
     # Relate the new application and wait for them to exchange connection data.
@@ -453,10 +439,8 @@ async def test_multiple_relations_accessing_same_index(ops_test: OpsTest):
     assert set(artists) == {"Herbie Hancock", "Lydian Collective", "Vulfpeck"}
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
-@pytest.mark.group(1)
 @pytest.mark.abort_on_fail
-@pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
+# @pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
 async def test_admin_relation(ops_test: OpsTest):
     """Test we can create relations with admin permissions."""
     # Add an admin relation and wait for them to exchange data
@@ -492,10 +476,8 @@ async def test_admin_relation(ops_test: OpsTest):
     assert set(artists) == {"Herbie Hancock", "Lydian Collective", "Vulfpeck"}
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
-@pytest.mark.group(1)
 @pytest.mark.abort_on_fail
-@pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
+# @pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
 async def test_admin_permissions(ops_test: OpsTest):
     """Test admin permissions behave the way we want.
 
@@ -562,8 +544,6 @@ async def test_admin_permissions(ops_test: OpsTest):
         assert "Error:" in results[0], results
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
-@pytest.mark.group(1)
 @pytest.mark.abort_on_fail
 async def test_normal_user_permissions(ops_test: OpsTest):
     """Test normal user permissions behave the way we want.
@@ -624,10 +604,8 @@ async def test_normal_user_permissions(ops_test: OpsTest):
         assert "Error:" in results[0], results
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
-@pytest.mark.group(1)
 @pytest.mark.abort_on_fail
-@pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
+# @pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
 async def test_relation_broken(ops_test: OpsTest):
     """Test that the user is removed when the relation is broken."""
     # Retrieve the relation user.
@@ -681,10 +659,8 @@ async def test_relation_broken(ops_test: OpsTest):
     assert relation_user not in users.keys()
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "large"])
-@pytest.mark.group(1)
 @pytest.mark.abort_on_fail
-@pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
+# @pytest.mark.skip("Wazuh version 4.9 is based on OSD 2.13 and not compatible")
 async def test_data_persists_on_relation_rejoin(ops_test: OpsTest):
     """Verify that if we recreate a relation, we can access the same index."""
     client_relation = await ops_test.model.integrate(

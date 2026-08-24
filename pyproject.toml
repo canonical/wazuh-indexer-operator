@@ -2,15 +2,12 @@
 # See LICENSE file for licensing details.
 
 [tool.poetry]
-# Charm is not packed as a standard Python package; this information is not used
-name = "charm"
-version = "0.1.0"
-description = ""
-authors = []
+package-mode = false
+requires-poetry = ">=2.0.0"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-ops = "^2.15"
+ops = ">=2.19.0"
 tenacity = "^8.2.3"
 boto3 = "^1.34.135"
 overrides = "^7.7.0"
@@ -22,12 +19,13 @@ jproperties = "2.1.1"
 pydantic = "^1.10.17, <2"
 cryptography = "^43.0.0"
 jsonschema = "^4.23.0"
-poetry-core = "^1.9.0"
+data-platform-helpers = "^0.1.4"
+poetry-core = "<2.0.0"
 
 
 [tool.poetry.group.charm-libs.dependencies]
 # data_platform_libs/v0/data_interfaces.py
-ops = "^2.15"
+ops = ">=2.19.0"
 # data_platform_libs/v0/upgrade.py
 # grafana_agent/v0/cos_agent.py requires pydantic <2
 pydantic = "^1.10.17, <2"
@@ -61,31 +59,32 @@ codespell = "^2.3.0"
 shellcheck-py = "^0.10.0.1"
 
 [tool.poetry.group.unit.dependencies]
+ops = { version = ">=2.19.0", extras = ["testing"] }
+ops-scenario = "^7.2.0"
 pytest = "^8.2.2"
 pytest-asyncio = "^0.21.2"
-coverage = {extras = ["toml"], version = "^7.5.1"}
+coverage = { extras = ["toml"], version = "^7.5.1" }
 parameterized = "^0.9.0"
 responses = "^0.25.3"
 
 [tool.poetry.group.integration.dependencies]
 boto3 = "^1.34.135"
 pytest = "^8.2.2"
-pytest-github-secrets = {git = "https://github.com/canonical/data-platform-workflows", tag = "v21.0.1", subdirectory = "python/pytest_plugins/github_secrets"}
 pytest-asyncio = "^0.21.2"
 pytest-operator = "^0.35.0"
-pytest-operator-cache = {git = "https://github.com/canonical/data-platform-workflows", tag = "v21.0.1", subdirectory = "python/pytest_plugins/pytest_operator_cache"}
-pytest-operator-groups = {git = "https://github.com/canonical/data-platform-workflows", tag = "v21.0.1", subdirectory = "python/pytest_plugins/pytest_operator_groups"}
-pytest-microceph = {git = "https://github.com/canonical/data-platform-workflows", tag = "v21.0.1", subdirectory = "python/pytest_plugins/microceph"}
-# should not be updated unless https://github.com/juju/python-libjuju/issues/1093 is fixed
-juju = "~3.5.0"
-ops = "^2.15"
+pytest-microceph = { git = "https://github.com/canonical/data-platform-workflows", tag = "v29.0.0", subdirectory = "python/pytest_plugins/microceph" }
+juju = "==3.6.0"
+ops = ">=2.19.0"
 tenacity = "^8.4.2"
 pyyaml = "^6.0.1"
 urllib3 = "^2.2.2"
 protobuf = "^5.27.2"
 opensearch-py = "^2.6.0"
 allure-pytest = "^2.13.5"
-allure-pytest-collection-report = {git = "https://github.com/canonical/data-platform-workflows", tag = "v21.0.1", subdirectory = "python/pytest_plugins/allure_pytest_collection_report"}
+allure-pytest-default-results = "^0.1.2"
+# Azure integration tests
+azure-identity = "^1.19"
+azure-storage-blob = "^12.24"
 
 [tool.coverage.run]
 branch = true

@@ -176,7 +176,10 @@ class TestOpenSearchConfig(unittest.TestCase):
         app = App(model_uuid=self.charm.model.uuid, name=self.charm.app.name)
         mock_deployment_desc.return_value = DeploymentDescription(
             config=PeerClusterConfig(
-                cluster_name="logs", init_hold=False, roles=["cluster_manager", "data"]
+                cluster_name="logs",
+                init_hold=False,
+                roles=["cluster_manager", "data"],
+                profile="production",
             ),
             start=StartMode.WITH_PROVIDED_ROLES,
             pending_directives=[],
@@ -184,6 +187,7 @@ class TestOpenSearchConfig(unittest.TestCase):
             typ=DeploymentType.MAIN_ORCHESTRATOR,
             state=DeploymentState(value=State.ACTIVE),
         )
+        self.charm.opensearch.public_address = "30.30.30.30"
 
         self.opensearch_config.set_node(
             app=app,
@@ -202,6 +206,7 @@ class TestOpenSearchConfig(unittest.TestCase):
         self.assertEqual(opensearch_conf["node.attr.app_id"], app.id)
         self.assertEqual(opensearch_conf["network.host"], ["_site_", "10.10.10.10"])
         self.assertEqual(opensearch_conf["network.publish_host"], "20.20.20.20")
+        self.assertEqual(opensearch_conf["http.publish_host"], "30.30.30.30")
         self.assertEqual(opensearch_conf["node.roles"], ["cluster_manager", "data"])
         self.assertEqual(opensearch_conf["discovery.seed_providers"], "file")
         self.assertEqual(opensearch_conf["cluster.initial_cluster_manager_nodes"], ["cm1"])

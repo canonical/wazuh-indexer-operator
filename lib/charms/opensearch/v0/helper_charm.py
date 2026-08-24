@@ -106,7 +106,9 @@ class RelDepartureReason(BaseStrEnum):
     REL_BROKEN = "rel-broken"
 
 
-def relation_departure_reason(charm: CharmBase, relation_name: str) -> RelDepartureReason:
+def relation_departure_reason(
+    charm: CharmBase, relation_name: str, departing_app: str
+) -> RelDepartureReason:
     """Compute the reason behind a relation departed event."""
     # fetch relation info
     goal_state = charm.model._backend._run("goal-state", return_output=True, use_json=True)
@@ -116,7 +118,7 @@ def relation_departure_reason(charm: CharmBase, relation_name: str) -> RelDepart
     dying_units = [
         unit_data["status"] == "dying"
         for unit, unit_data in rel_info.items()
-        if unit != relation_name
+        if unit != departing_app and unit.split("/")[0] == departing_app
     ]
 
     # check if app removal
@@ -215,7 +217,7 @@ def run_cmd(command: str, args: str = None) -> SimpleNamespace:
         )
 
         if output.returncode != 0:
-            logger.error(f"err: {output.stderr} / out: {output.stdout}")
+            logger.debug(f"err: {output.stderr} / out: {output.stdout}")
             raise OpenSearchCmdError(cmd=command, out=output.stdout, err=output.stderr)
 
         return SimpleNamespace(cmd=command, out=output.stdout, err=output.stderr)

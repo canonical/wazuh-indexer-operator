@@ -21,9 +21,9 @@ from ..ha.helpers import (
 )
 from ..helpers import (
     APP_NAME,
+    CONFIG_OPTS,
     IDLE_PERIOD,
     MODEL_CONFIG,
-    SERIES,
     app_name,
     check_cluster_formation_successful,
     cluster_health,
@@ -33,31 +33,30 @@ from ..helpers import (
     get_leader_unit_ip,
 )
 from ..helpers_deployments import wait_until
-from ..tls.test_tls import TLS_CERTIFICATES_APP_NAME
+from ..tls.test_tls import TLS_CERTIFICATES_APP_NAME, TLS_STABLE_CHANNEL
 from .continuous_writes import ContinuousWrites
 from .helpers_data import create_dummy_docs, create_dummy_indexes, delete_dummy_indexes
 
 logger = logging.getLogger(__name__)
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "xlarge"])
-@pytest.mark.group(1)
 @pytest.mark.abort_on_fail
 @pytest.mark.skip_if_deployed
-async def test_build_and_deploy(ops_test: OpsTest) -> None:
+async def test_build_and_deploy(ops_test: OpsTest, charm, series) -> None:
     """Build and deploy one unit of OpenSearch."""
     # it is possible for users to provide their own cluster for HA testing.
     # Hence, check if there is a pre-existing cluster.
     if await app_name(ops_test):
         return
 
-    my_charm = await ops_test.build_charm(".")
     await ops_test.model.set_config(MODEL_CONFIG)
     # Deploy TLS Certificates operator.
     config = {"ca-common-name": "CN_CA"}
     await asyncio.gather(
-        ops_test.model.deploy(TLS_CERTIFICATES_APP_NAME, channel="latest/stable", config=config),
-        ops_test.model.deploy(my_charm, num_units=1, series=SERIES),
+        ops_test.model.deploy(
+            TLS_CERTIFICATES_APP_NAME, channel=TLS_STABLE_CHANNEL, config=config
+        ),
+        ops_test.model.deploy(charm, num_units=1, series=series, config=CONFIG_OPTS),
     )
 
     # Relate it to OpenSearch to set up TLS.
@@ -68,8 +67,6 @@ async def test_build_and_deploy(ops_test: OpsTest) -> None:
     assert len(ops_test.model.applications[APP_NAME].units) == 1
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "xlarge"])
-@pytest.mark.group(1)
 @pytest.mark.abort_on_fail
 async def test_horizontal_scale_up(
     ops_test: OpsTest, c_writes: ContinuousWrites, c_writes_runner
@@ -117,8 +114,6 @@ async def test_horizontal_scale_up(
     await assert_continuous_writes_consistency(ops_test, c_writes, [app])
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "xlarge"])
-@pytest.mark.group(1)
 @pytest.mark.abort_on_fail
 async def test_safe_scale_down_shards_realloc(
     ops_test: OpsTest, c_writes: ContinuousWrites, c_writes_runner
@@ -228,8 +223,6 @@ async def test_safe_scale_down_shards_realloc(
     await assert_continuous_writes_consistency(ops_test, c_writes, [app])
 
 
-@pytest.mark.runner(["self-hosted", "linux", "X64", "jammy", "xlarge"])
-@pytest.mark.group(1)
 async def test_safe_scale_down_remove_leaders(
     ops_test: OpsTest, c_writes: ContinuousWrites, c_writes_runner
 ) -> None:
