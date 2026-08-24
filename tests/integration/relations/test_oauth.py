@@ -61,14 +61,14 @@ async def test_setup_relations(ops_test: OpsTest, microk8s_model: Model):
     """
     await microk8s_model.create_offer("certificates", "certificates", "self-signed-certificates")
     await ops_test.model.consume(f"admin/{microk8s_model.name}.certificates")
-    await ops_test.model.integrate("opensearch:certificates", "certificates")
+    await ops_test.model.integrate("wazuh-indexer:certificates", "certificates")
 
     await microk8s_model.create_offer("oauth", "oauth", "hydra")
     await ops_test.model.consume(f"admin/{microk8s_model.name}.oauth")
-    await ops_test.model.integrate("opensearch:oauth", "oauth")
+    await ops_test.model.integrate("wazuh-indexer:oauth", "oauth")
 
     await ops_test.model.integrate(
-        "opensearch:opensearch-client", f"{DATA_INTEGRATOR_NAME}:opensearch"
+        "wazuh-indexer:opensearch-client", f"{DATA_INTEGRATOR_NAME}:opensearch"
     )
 
     await gather(ops_test.model.wait_for_idle(status="active"), microk8s_model.wait_for_idle())
@@ -129,7 +129,7 @@ async def test_oauth_access(ops_test: OpsTest, microk8s_model: Model):
     to the admin role and checking access to the admin endpoint.
     """
     global opensearch_address
-    opensearch_address = await get_leader_unit_ip(ops_test, "opensearch")
+    opensearch_address = await get_leader_unit_ip(ops_test, "wazuh-indexer")
     opensearch_url = f"https://{opensearch_address}:9200/_cat/indices"
     result = requests.get(
         opensearch_url, headers={"Authorization": f"Bearer {oauth_access_token}"}, verify=False
@@ -146,10 +146,10 @@ async def test_oauth_access(ops_test: OpsTest, microk8s_model: Model):
     assert data_integrator_user, "failed to retrieve data integrator user"
 
     global original_opensearch_config
-    original_opensearch_config = await ops_test.model.applications["opensearch"].get_config()
+    original_opensearch_config = await ops_test.model.applications["wazuh-indexer"].get_config()
     config_with_roles = original_opensearch_config.copy()
     config_with_roles["roles_mapping"] = json.dumps({oauth_client_id: data_integrator_user})
-    await ops_test.model.applications["opensearch"].set_config(config_with_roles)
+    await ops_test.model.applications["wazuh-indexer"].set_config(config_with_roles)
     await ops_test.model.wait_for_idle(status="active")
 
     result = requests.get(
@@ -167,7 +167,7 @@ async def test_deploy_second_client(ops_test: OpsTest, microk8s_model: Model):
         config=SECOND_DATA_INTEGRATOR_CONFIG,
     )
     await ops_test.model.wait_for_idle()
-    await ops_test.model.integrate(SECOND_DATA_INTEGRATOR_NAME, "opensearch")
+    await ops_test.model.integrate(SECOND_DATA_INTEGRATOR_NAME, "wazuh-indexer")
     await ops_test.model.wait_for_idle()
 
 
@@ -189,7 +189,7 @@ async def test_oauth_access_second_client(ops_test: OpsTest, microk8s_model: Mod
 
     config_with_roles = original_opensearch_config.copy()
     config_with_roles["roles_mapping"] = json.dumps({oauth_client_id: second_data_integrator_user})
-    await ops_test.model.applications["opensearch"].set_config(config_with_roles)
+    await ops_test.model.applications["wazuh-indexer"].set_config(config_with_roles)
     await ops_test.model.wait_for_idle(status="active")
 
     # Ensure first data integrator admin role is removed
@@ -220,7 +220,7 @@ async def test_oauth_access_second_client(ops_test: OpsTest, microk8s_model: Mod
 @pytest.mark.abort_on_fail
 async def test_oauth_access_cleanup(ops_test: OpsTest, microk8s_model: Model):
     """Ensure that all of the oauth clients permissions are removed with clean roles mapping."""
-    await ops_test.model.applications["opensearch"].set_config(original_opensearch_config)
+    await ops_test.model.applications["wazuh-indexer"].set_config(original_opensearch_config)
     await ops_test.model.wait_for_idle(status="active")
 
     result = requests.get(

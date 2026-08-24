@@ -27,7 +27,7 @@ variable "sysconfig" {
 variable "wazuh_indexer" {
   type = object({
     app_name    = optional(string, "wazuh-indexer")
-    channel     = optional(string, "4.9/edge")
+    channel     = optional(string, "4.11/edge")
     config      = optional(map(string), {})
     constraints = optional(string, "arch=amd64")
     revision    = optional(number)
