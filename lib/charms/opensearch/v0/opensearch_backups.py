@@ -267,7 +267,7 @@ class BackupManager:
 
         return output["snapshot"]
 
-    def list_backups(self) -> Dict[int, str]:
+    def list_backups(self) -> dict[str, dict[str, Any]]:
         """Returns a mapping of snapshot ids / state."""
         # Using the original request method, as we want to raise an http exception if we
         # cannot get the snapshot list.
