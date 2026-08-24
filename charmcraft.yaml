@@ -54,6 +54,11 @@ parts:
     after:
       - poetry-deps
     poetry-export-extra-args: ['--only', 'main,charm-libs']
+    # jproperties' sdist build requires setuptools_scm~=3.3, whose legacy setup.py
+    # imports pkg_resources, which was removed from modern setuptools. Since the
+    # poetry plugin forces `--no-binary=:all:`, force jproperties to install from
+    # its wheel instead of building from source.
+    poetry-pip-extra-args: ['--only-binary=jproperties']
     build-packages:
       - libffi-dev  # Needed to build Python dependencies with Rust from source
       - libssl-dev  # Needed to build Python dependencies with Rust from source
