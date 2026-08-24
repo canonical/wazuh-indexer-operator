@@ -2,7 +2,7 @@ name: Documentation
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "2/edge" ]
   pull_request:
 
 jobs:
