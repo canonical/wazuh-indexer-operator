@@ -117,6 +117,15 @@ jobs:
         run: |
           sudo lxc image copy ubuntu:568f69ff1166 local:
           sudo lxc image alias create "juju/ubuntu@22.04/amd64" 568f69ff1166
+      # TODO: remove when https://github.com/juju/juju/issues/18900 is fixed.
+      # Pre-cache the jammy VM image under the alias juju spread jobs use, so that when
+      # spread later provisions several LXD VMs concurrently in the same model, they all
+      # find the image already cached/aliased instead of racing each other to download it
+      # (which fails with "Alias already exists: juju/ubuntu@22.04/amd64/vm").
+      - name: Pre-cache lxc image for jammy VMs
+        timeout-minutes: 10
+        run: |
+          sudo lxc image copy ubuntu:22.04 local: --vm --alias "juju/ubuntu@22.04/amd64/vm"
       - name: Run spread job
         timeout-minutes: 180
         id: spread
