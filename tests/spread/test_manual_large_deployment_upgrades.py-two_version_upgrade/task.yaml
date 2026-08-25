@@ -4,6 +4,7 @@ environment:
 systems:
   - self-hosted-linux-amd64-noble-xlarge
 execute: |
-  tox run -e integration -- "tests/integration/$TEST_MODULE" --model testing --alluredir="$SPREAD_TASK/allure-results" -m 'group(id="two_version_upgrade")'
+  true # Not supported by Wazuh: large/multi-model deployments are not supported
+  # tox run -e integration -- "tests/integration/$TEST_MODULE" --model testing --alluredir="$SPREAD_TASK/allure-results" -m 'group(id="two_version_upgrade")'
 artifacts:
   - allure-results
