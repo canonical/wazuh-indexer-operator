@@ -10,21 +10,22 @@ Each revision is versioned by the date of the revision.
 
 ### Changed
 
-- Standardized on a single mechanism to mark spread integration tests as "not supported by
-  Wazuh": `execute: | true # Not supported by Wazuh: <reason>`. Removed the undocumented
-  `.no-large-deployment-for-wazuh` fake-system-suffix hack that silently prevented scheduling of
-  large-deployment/cross-model spread tasks (`charmcraft test --list` never listed them). The
-  underlying Python test modules are left untouched to minimize future upstream-sync conflicts.
-- Disabled additional large-deployment/multi-cluster integration tests that are out of scope for
-  Wazuh (single-cluster, microceph-only deployments): `test_backups.py-microceph-large`,
-  `test_ca_rotation.py-large`, `test_ha_multi_clusters.py`, and all spread tasks previously hidden
-  by the fake-system hack (`test_large_deployments_cluster_manager_only_nodes.py`,
+- Removed the spread task directories (`tests/spread/<task>/task.yaml`) for all Azure/AWS/GCP and
+  large-deployment/multi-cluster integration tests, which are out of scope for Wazuh (we only
+  support single-cluster, microceph-only deployments): `test_backups.py-aws-large`,
+  `test_backups.py-aws-small`, `test_backups.py-azure-large`, `test_backups.py-azure-small`,
+  `test_backups.py-microceph-large`, `test_ca_rotation.py-large`, `test_ha_multi_clusters.py`,
+  `test_large_deployments_cluster_manager_only_nodes.py`,
   `test_large_deployments_inherit_cluster_name.py` (both variants),
   `test_large_deployments_relations.py`, `test_large_deployments_remove_orchestrators.py`,
-  `test_manual_large_deployment_upgrades.py`, `test_plugins.py-large`,
-  `test_failover_promotion_cross_model_relations.py`).
-- Added a stub spread task for `test_large_deployments_validate_cm_count.py`, which previously had
-  no spread wiring at all and never ran.
+  `test_large_deployments_validate_cm_count.py`, `test_manual_large_deployment_upgrades.py`,
+  `test_plugins.py-large`, `test_failover_promotion_cross_model_relations.py`. Since
+  `charmcraft test --list` (and therefore the CI job matrix) is derived by enumerating
+  `tests/spread/`, merely stubbing these tasks with `execute: | true` still scheduled a runner and
+  consumed CI capacity for each one; deleting the task directories is the only way to stop them
+  from ever being scheduled. Removed the now-unused `.no-large-deployment-for-wazuh`
+  fake-system-suffix hack that some of these previously relied on. The underlying Python test
+  modules are left untouched (unreachable, but kept to minimize future upstream-sync conflicts).
 - Added a workaround in `.github/workflows/integration_test.yaml` for
   [juju/juju#18900](https://github.com/juju/juju/issues/18900) (unresolved upstream Juju bug: a
   race in the LXD provisioner when multiple VM machines are started concurrently in the same
