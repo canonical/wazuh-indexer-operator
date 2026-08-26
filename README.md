@@ -66,7 +66,7 @@ juju deploy wazuh-indexer --channel=4.11/edge
 
 The relevant provided [relations](https://documentation.ubuntu.com/juju/3.6/reference/relation/) of Charmed Wazuh Indexer are:
 
-### Client interface:
+### Client interface
 
 To connect to the Charmed Wazuh Indexer Operator and exchange data, relate to the `opensearch-client` endpoint:
 

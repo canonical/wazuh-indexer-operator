@@ -3,7 +3,13 @@
 # See LICENSE file for licensing details.
 
 name: cla-check
-on: [pull_request]
+on:
+  pull_request:
+  # Also trigger on push to sync/* branches: merge commits created while syncing with the
+  # upstream fork can conflict in ways that don't trigger CI on a pull_request event alone.
+  push:
+    branches:
+      - 'sync/**'
 
 jobs:
   cla-check:

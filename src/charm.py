@@ -10,7 +10,7 @@ import typing
 import ops
 from charms.opensearch.v0.constants_charm import InstallError, InstallProgress
 from charms.opensearch.v0.helper_cos import update_grafana_dashboards_title
-from charms.opensearch.v0.models import App, PerformanceType
+from charms.opensearch.v0.models import App
 from charms.opensearch.v0.opensearch_base_charm import OpenSearchBaseCharm
 from charms.opensearch.v0.opensearch_config import OpenSearchConfig
 from charms.opensearch.v0.opensearch_distro import OpenSearchDistribution
@@ -93,6 +93,10 @@ class OpenSearchOperatorCharm(OpenSearchCharm):
         self.framework.observe(
             self.on[machine_upgrade.FORCE_ACTION_NAME].action, self._on_force_upgrade_action
         )
+        self.framework.observe(
+            self.on[machine_upgrade.ROLLBACK_OVERRIDE_VERSION_ACTION_NAME].action,
+            self._on_refresh_force_start_action,
+        )
 
     @property
     def _upgrade(self) -> typing.Optional[machine_upgrade.Upgrade]:
@@ -117,7 +121,7 @@ class OpenSearchOperatorCharm(OpenSearchCharm):
                 # Save versions on initial start
                 self._upgrade.set_versions_in_app_databag()
 
-    def _reconcile_upgrade(self, _=None):
+    def _reconcile_upgrade(self, _=None):  # noqa: C901
         """Handle upgrade events."""
         if not self._upgrade:
             logger.debug("Peer relation not available")
@@ -139,7 +143,32 @@ class OpenSearchOperatorCharm(OpenSearchCharm):
         if not self._upgrade.is_compatible:
             self._set_upgrade_status()
             return
+
+        # CHECK FOR ROLLBACK
+        if self._upgrade.is_rollback and not self._upgrade.can_rollback:
+            self.unit.status = ops.BlockedStatus(
+                "Rollback unsupported. Refresh to a newer revision or consult the recovery documentation"
+            )
+            logger.error(
+                "Rollback unsupported. Refresh to a newer revision or consult the recovery documentation"
+            )
+            # TODO LOG LINK TO RECOVERY DOCS
+            return
+
         if self._upgrade.unit_state is upgrade.UnitState.OUTDATED:
+            logger.debug(
+                f"Rollback status: is_rollback={self._upgrade.is_rollback}, can_rollback={self._upgrade.can_rollback}"
+            )
+            if self._upgrade.is_rollback:
+                logger.warning("Rollback detected")
+                self.unit.status = BlockedStatus(
+                    "Rollback incompatible. Run 'juju run <unit> force-refresh-start' with `check-compatibility` set to false to override node version and attempt startup procedure"
+                )
+                logger.warning(
+                    "Rollback incompatible. Run 'juju run <unit> force-refresh-start' with `check-compatibility` set to false to override node version and attempt startup procedure"
+                )
+                self.node_lock.release()
+                return
             try:
                 authorized = self._upgrade.authorized
             except upgrade.PrecheckFailed as exception:
@@ -161,8 +190,9 @@ class OpenSearchOperatorCharm(OpenSearchCharm):
         # Set/clear upgrade unit status if no other unit status
         if isinstance(self.unit.status, ops.ActiveStatus) or (
             isinstance(self.unit.status, ops.BlockedStatus)
-            and self.unit.status.message.startswith(
-                "Rollback with `juju refresh`. Pre-upgrade check failed:"
+            and (
+                self.unit.status.message.startswith("Pre-upgrade check failed:")
+                or self.unit.status.message.startswith("Rollback")
             )
         ):
             self.status.set(self._upgrade.get_unit_juju_status() or ops.ActiveStatus())
@@ -184,12 +214,7 @@ class OpenSearchOperatorCharm(OpenSearchCharm):
 
     def _on_upgrade_charm(self, _):
         update_grafana_dashboards_title(self)
-        if not self.performance_profile.current:
-            # We are running (1) install or (2) an upgrade on instance that pre-dates profile
-            # First, we set this unit's effective profile -> 1G heap and no index templates.
-            # Our goal is to make sure this value exists once the refresh is finished
-            # and it represents the accurate value for this unit.
-            self.performance_profile.current = PerformanceType.TESTING
+        # TODO check backwards compatibility for profiles
 
         if self._unit_lifecycle.authorized_leader:
             if not self._upgrade.in_progress:
@@ -262,6 +287,26 @@ class OpenSearchOperatorCharm(OpenSearchCharm):
         self._upgrade_opensearch_event.emit(ignore_lock=False)
         event.set_results({"result": f"Forcefully upgraded {self.unit.name}"})
         logger.debug("Forced upgrade")
+
+    def _on_refresh_force_start_action(self, event: ops.ActionEvent) -> None:
+        """Handle force refresh start action for rollback scenario."""
+        if not self._upgrade or not self._upgrade.is_rollback:
+            logger.debug("For refresh start event failed: No rollback in progress")
+            event.fail("No rollback in progress")
+            return
+        if self._upgrade.unit_state is not upgrade.UnitState.OUTDATED:
+            message = "Unit already upgraded"
+            logger.debug(f"Force upgrade event failed: {message}")
+            event.fail(message)
+            return
+        if event.params.get("check-compatibility", True):
+            message = "Rollbacks are not supported. This action will attempt to start the unit with the current version of OpenSearch. If the current version is incompatible with the cluster, the unit may fail to start. Rerun with `check-compatibility` set to false to override this check and attempt startup procedure."
+            logger.debug("Refresh force start event failed: %s", message)
+            event.fail(message)
+            return
+        self._upgrade_opensearch_event.emit(override_version=True)
+        event.set_results({"result": f"Overrode OpenSearch version on {self.unit.name}"})
+        logger.debug("Overrode OpenSearch version")
 
 
 if __name__ == "__main__":
