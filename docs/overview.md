@@ -8,7 +8,17 @@ Consequently, this charm is a Charmed [OpenSearch](https://github.com/canonical/
 When deployed and integrated with the [Wazuh Server charm](https://charmhub.io/wazuh-server),
 the Wazuh Indexer charm expands the capabilities that the OpenSearch charm would provide. See the Server charm's documentation for more details. 
 
-For the complete documentation, refer to [upstream](https://charmhub.io/opensearch).
+This charm is Wazuh-specific: it packages and configures Wazuh Indexer rather than plain
+OpenSearch, and this documentation only covers what differs for Wazuh Indexer (deployment,
+configuration, and fork maintenance). For general OpenSearch operational documentation —
+tutorials, how-to guides, and reference material that still applies to the underlying OpenSearch
+engine — see the official [Charmed OpenSearch documentation](https://canonical.com/data/opensearch/docs/2/).
+
+## Fork-specific resources
+
+- [`FORK.md`](../FORK.md) — how this fork is kept in sync with `canonical/opensearch-operator`
+- [`CHANGELOG-FORK.md`](../CHANGELOG-FORK.md) — log of changes specific to Wazuh Indexer (not
+  present upstream)
 
 ## Project and community
 
@@ -17,6 +27,6 @@ The Wazuh Indexer Operator is a member of the Ubuntu family. It's an open-source
 - [Code of conduct](https://ubuntu.com/community/code-of-conduct)
 - [Get support](https://discourse.charmhub.io/)
 - [Join our online chat](https://matrix.to/#/#charmhub-charmdev:ubuntu.com)
-- [Contribute](https://github.com/canonical/opensearch-operator/blob/2/edge/CONTRIBUTING.md)
+- [Contribute](../CONTRIBUTING.md)
 
 Thinking about using the Wazuh Indexer Operator for your next project? [Get in touch](https://matrix.to/#/#charmhub-charmdev:ubuntu.com)!
