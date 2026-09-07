@@ -33,6 +33,11 @@ class OpenSearchFixes:
             ".plugins-ml-config",
             ".opensearch-sap-log-types-config",
             ".opensearch-sap-pre-packaged-rules-config",
+            # Wazuh: Security plugin audit log indices roll over daily (e.g.
+            # "security-auditlog-2024.01.01") and are created with a hardcoded
+            # number_of_replicas=1, leaving a permanently unassigned replica shard
+            # (cluster health yellow/blocked) on single-node deployments.
+            "security-auditlog-*",
         ]
         for index in target_indices:
             try:

@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Each revision is versioned by the date of the revision.
 
+## 2026-09-07
+
+### Fixed
+
+- Added `security-auditlog-*` to the hardcoded index list in
+  `OpenSearchFixes._reconfigure_replicas_of_builtin_indices()`
+  (`lib/charms/opensearch/v0/opensearch_fixes.py`). The Security plugin's audit log indices
+  (rolled over daily, e.g. `security-auditlog-2024.01.01`) are created with a hardcoded
+  `number_of_replicas: 1` and no matching index template, leaving a permanently unassigned
+  replica shard on single-node deployments (cluster health `yellow`, Juju status
+  `blocked`/`1 or more 'replica' shards are not assigned, please scale your application up.`).
+  This upstream fix mechanism previously only covered 3 vanilla OpenSearch indices
+  (`.plugins-ml-config`, `.opensearch-sap-log-types-config`,
+  `.opensearch-sap-pre-packaged-rules-config`) affected by
+  [opensearch-project/OpenSearch#8862](https://github.com/opensearch-project/OpenSearch/issues/8862);
+  it never accounted for the Security plugin's audit log index, which upstream OpenSearch tests
+  don't exercise.
+
 ## 2026-08-25
 
 ### Changed
