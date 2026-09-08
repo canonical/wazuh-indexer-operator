@@ -4,6 +4,7 @@
 import json
 import logging
 from asyncio import gather
+from pathlib import Path
 
 import pytest
 import requests
@@ -16,6 +17,12 @@ from tenacity import retry, stop_after_attempt, wait_fixed
 IDENTITY_PLATFORM_NAME = "identity-platform"
 DATA_INTEGRATOR_NAME = "data-integrator"
 SECOND_DATA_INTEGRATOR_NAME = "second-data-integrator"
+
+# Pins hydra to the same revision/channel used by upstream's current oauth test suite
+# (canonical/opensearch-single-kernel-library's tests/integration/bundle-iam.yaml), so a future
+# "edge" channel update to the identity-platform bundle can't silently swap in an untested hydra
+# revision.
+IDENTITY_PLATFORM_OVERLAY = Path(__file__).parent / "identity-platform-overlay.yaml"
 
 DATA_INTEGRATOR_CONFIG = {
     "index-name": "admin-index",
@@ -47,6 +54,7 @@ async def test_deploy(ops_test: OpsTest, charm, series, microk8s_model: Model):
             IDENTITY_PLATFORM_NAME,
             channel="edge",
             trust=True,
+            overlays=[str(IDENTITY_PLATFORM_OVERLAY)],
         ),
     )
     await gather(
@@ -108,6 +116,10 @@ async def test_setup_oauth(ops_test: OpsTest, microk8s_model: Model):
 
     Also, acquire corresponding access token for the further testing.
     """
+    # Hydra sometimes takes longer than our action retry budget to recover from a transient
+    # "Failed to restart the service" blip; wait for it to reach active before running the
+    # action (mirrors the equivalent gate in upstream's oauth test suite).
+    await microk8s_model.wait_for_idle(apps=["hydra"], status="active", timeout=300)
     action = await _create_oauth_client(microk8s_model)
     global oauth_client_id
     oauth_client_id = action.results.get("client-id")

@@ -1,0 +1,11 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+#
+# Pins hydra to the revision/channel confirmed to match upstream's
+# opensearch-single-kernel-library test suite (see tests/integration/bundle-iam.yaml there),
+# so a future "edge" channel update to the identity-platform bundle can't silently swap in an
+# untested hydra revision.
+applications:
+  hydra:
+    channel: latest/edge
+    revision: 339
