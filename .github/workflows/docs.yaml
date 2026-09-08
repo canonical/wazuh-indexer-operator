@@ -13,3 +13,7 @@ jobs:
     secrets: inherit
     with:
       vale-files: '["README.md","CONTRIBUTING.md"]'
+      # We don't publish a Sphinx/Read the Docs site, and docs/ mirrors Discourse-style content
+      # (root-relative /t/NNNN topic links, extension-less cross-references) that isn't
+      # link-checkable as plain files, so restrict Lychee to the same files Vale covers.
+      linkcheck-files: "'./README.md' './CONTRIBUTING.md'"
