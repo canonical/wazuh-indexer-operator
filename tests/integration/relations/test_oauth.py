@@ -4,6 +4,7 @@
 import json
 import logging
 from asyncio import gather
+from pathlib import Path
 
 import pytest
 import requests
@@ -11,10 +12,17 @@ from integration.helpers import CONFIG_OPTS, get_leader_unit_ip
 from juju.client.client import Action
 from juju.model import Model
 from pytest_operator.plugin import OpsTest
+from tenacity import retry, stop_after_attempt, wait_fixed
 
 IDENTITY_PLATFORM_NAME = "identity-platform"
 DATA_INTEGRATOR_NAME = "data-integrator"
 SECOND_DATA_INTEGRATOR_NAME = "second-data-integrator"
+
+# Pins hydra and postgresql-k8s to the same revision/channel used by upstream's current oauth
+# test suite (canonical/opensearch-single-kernel-library's tests/integration/bundle-iam.yaml), so
+# a future "edge"/"stable" channel update to the identity-platform bundle can't silently swap in
+# an untested hydra or postgresql-k8s revision.
+IDENTITY_PLATFORM_OVERLAY = Path(__file__).parent / "identity-platform-overlay.yaml"
 
 DATA_INTEGRATOR_CONFIG = {
     "index-name": "admin-index",
@@ -46,6 +54,7 @@ async def test_deploy(ops_test: OpsTest, charm, series, microk8s_model: Model):
             IDENTITY_PLATFORM_NAME,
             channel="edge",
             trust=True,
+            overlays=[str(IDENTITY_PLATFORM_OVERLAY)],
         ),
     )
     await gather(
@@ -74,11 +83,13 @@ async def test_setup_relations(ops_test: OpsTest, microk8s_model: Model):
     await gather(ops_test.model.wait_for_idle(status="active"), microk8s_model.wait_for_idle())
 
 
-@pytest.mark.abort_on_fail
-async def test_setup_oauth(ops_test: OpsTest, microk8s_model: Model):
-    """Configure new OAuth client on Hydra (identity platform).
+@retry(stop=stop_after_attempt(5), wait=wait_fixed(10), reraise=True)
+async def _create_oauth_client(microk8s_model: Model) -> Action:
+    """Run the create-oauth-client action, retrying while hydra is still recovering.
 
-    Also, acquire corresponding access token for the further testing.
+    Hydra occasionally reports a transient "Failed to restart the service" status right after
+    the oauth relation settles; retrying gives it a chance to self-heal instead of failing the
+    test outright.
     """
     action: Action = (
         await microk8s_model.applications["hydra"]
@@ -93,12 +104,30 @@ async def test_setup_oauth(ops_test: OpsTest, microk8s_model: Model):
         )
     )
     await action.wait()
+    assert action.results.get("client-id") and action.results.get(
+        "client-secret"
+    ), "failed to retrieve oauth client id and secret from hydra"
+    return action
+
+
+@pytest.mark.abort_on_fail
+async def test_setup_oauth(ops_test: OpsTest, microk8s_model: Model):
+    """Configure new OAuth client on Hydra (identity platform).
+
+    Also, acquire corresponding access token for the further testing.
+    """
+    # Hydra's "Failed to restart the service" blip is often actually postgresql-k8s not having
+    # finished creating hydra's database yet; gate on postgresql-k8s reaching active first so we
+    # don't waste the hydra wait/retry budget on a dependency that isn't ready yet.
+    await microk8s_model.wait_for_idle(apps=["postgresql-k8s"], status="active", timeout=300)
+    # Hydra sometimes takes longer than our action retry budget to recover from a transient
+    # "Failed to restart the service" blip; wait for it to reach active before running the
+    # action (mirrors the equivalent gate in upstream's oauth test suite).
+    await microk8s_model.wait_for_idle(apps=["hydra"], status="active", timeout=300)
+    action = await _create_oauth_client(microk8s_model)
     global oauth_client_id
     oauth_client_id = action.results.get("client-id")
     oauth_client_secret = action.results.get("client-secret")
-    assert (
-        oauth_client_id and oauth_client_secret
-    ), "failed to retrieve oauth client id and secret from hydra"
 
     action = (
         await microk8s_model.applications["traefik-public"]
