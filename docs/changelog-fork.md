@@ -10,10 +10,10 @@ Each revision is versioned by the date of the revision.
 
 ### Fixed
 
-- Added `security-auditlog-*` to the hardcoded index list in
+- Added `security-auditlog-*` to the hard-coded index list in
   `OpenSearchFixes._reconfigure_replicas_of_builtin_indices()`
   (`lib/charms/opensearch/v0/opensearch_fixes.py`). The Security plugin's audit log indices
-  (rolled over daily, e.g. `security-auditlog-2024.01.01`) are created with a hardcoded
+  (rolled over daily, e.g. `security-auditlog-2024.01.01`) are created with a hard-coded
   `number_of_replicas: 1` and no matching index template, leaving a permanently unassigned
   replica shard on single-node deployments (cluster health `yellow`, Juju status
   `blocked`/`1 or more 'replica' shards are not assigned, please scale your application up.`).
