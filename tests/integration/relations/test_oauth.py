@@ -147,6 +147,10 @@ async def test_setup_oauth(ops_test: OpsTest, microk8s_model: Model):
 
     Also, acquire corresponding access token for the further testing.
     """
+    # Hydra's "Failed to restart the service" blip is often actually postgresql-k8s not having
+    # finished creating hydra's database yet; gate on postgresql-k8s reaching active first so we
+    # don't waste the hydra wait/retry budget on a dependency that isn't ready yet.
+    await microk8s_model.wait_for_idle(apps=["postgresql-k8s"], status="active", timeout=300)
     action = await _create_oauth_client(microk8s_model)
     global oauth_client_id
     oauth_client_id = action.results.get("client-id")
