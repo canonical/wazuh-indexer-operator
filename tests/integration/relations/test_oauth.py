@@ -11,6 +11,7 @@ from integration.helpers import CONFIG_OPTS, get_leader_unit_ip
 from juju.client.client import Action
 from juju.model import Model
 from pytest_operator.plugin import OpsTest
+from tenacity import retry, stop_after_attempt, wait_fixed
 
 IDENTITY_PLATFORM_NAME = "identity-platform"
 DATA_INTEGRATOR_NAME = "data-integrator"
@@ -74,11 +75,13 @@ async def test_setup_relations(ops_test: OpsTest, microk8s_model: Model):
     await gather(ops_test.model.wait_for_idle(status="active"), microk8s_model.wait_for_idle())
 
 
-@pytest.mark.abort_on_fail
-async def test_setup_oauth(ops_test: OpsTest, microk8s_model: Model):
-    """Configure new OAuth client on Hydra (identity platform).
+@retry(stop=stop_after_attempt(5), wait=wait_fixed(10), reraise=True)
+async def _create_oauth_client(microk8s_model: Model) -> Action:
+    """Run the create-oauth-client action, retrying while hydra is still recovering.
 
-    Also, acquire corresponding access token for the further testing.
+    Hydra occasionally reports a transient "Failed to restart the service" status right after
+    the oauth relation settles; retrying gives it a chance to self-heal instead of failing the
+    test outright.
     """
     action: Action = (
         await microk8s_model.applications["hydra"]
@@ -93,12 +96,22 @@ async def test_setup_oauth(ops_test: OpsTest, microk8s_model: Model):
         )
     )
     await action.wait()
+    assert action.results.get("client-id") and action.results.get(
+        "client-secret"
+    ), "failed to retrieve oauth client id and secret from hydra"
+    return action
+
+
+@pytest.mark.abort_on_fail
+async def test_setup_oauth(ops_test: OpsTest, microk8s_model: Model):
+    """Configure new OAuth client on Hydra (identity platform).
+
+    Also, acquire corresponding access token for the further testing.
+    """
+    action = await _create_oauth_client(microk8s_model)
     global oauth_client_id
     oauth_client_id = action.results.get("client-id")
     oauth_client_secret = action.results.get("client-secret")
-    assert (
-        oauth_client_id and oauth_client_secret
-    ), "failed to retrieve oauth client id and secret from hydra"
 
     action = (
         await microk8s_model.applications["traefik-public"]
