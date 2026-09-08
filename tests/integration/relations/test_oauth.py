@@ -18,10 +18,10 @@ IDENTITY_PLATFORM_NAME = "identity-platform"
 DATA_INTEGRATOR_NAME = "data-integrator"
 SECOND_DATA_INTEGRATOR_NAME = "second-data-integrator"
 
-# Pins hydra to the same revision/channel used by upstream's current oauth test suite
-# (canonical/opensearch-single-kernel-library's tests/integration/bundle-iam.yaml), so a future
-# "edge" channel update to the identity-platform bundle can't silently swap in an untested hydra
-# revision.
+# Pins hydra and postgresql-k8s to the same revision/channel used by upstream's current oauth
+# test suite (canonical/opensearch-single-kernel-library's tests/integration/bundle-iam.yaml), so
+# a future "edge"/"stable" channel update to the identity-platform bundle can't silently swap in
+# an untested hydra or postgresql-k8s revision.
 IDENTITY_PLATFORM_OVERLAY = Path(__file__).parent / "identity-platform-overlay.yaml"
 
 DATA_INTEGRATOR_CONFIG = {
@@ -116,6 +116,10 @@ async def test_setup_oauth(ops_test: OpsTest, microk8s_model: Model):
 
     Also, acquire corresponding access token for the further testing.
     """
+    # Hydra's "Failed to restart the service" blip is often actually postgresql-k8s not having
+    # finished creating hydra's database yet; gate on postgresql-k8s reaching active first so we
+    # don't waste the hydra wait/retry budget on a dependency that isn't ready yet.
+    await microk8s_model.wait_for_idle(apps=["postgresql-k8s"], status="active", timeout=300)
     # Hydra sometimes takes longer than our action retry budget to recover from a transient
     # "Failed to restart the service" blip; wait for it to reach active before running the
     # action (mirrors the equivalent gate in upstream's oauth test suite).
