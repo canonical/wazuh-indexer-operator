@@ -309,7 +309,7 @@ Wait for the charm to apply the change:
 juju status --watch 5s
 ```
 
-### Retrigger the API (should work)
+### Re-trigger the API (should work)
 
 ```shell
 curl -k -H "Authorization: Bearer ${OAUTH_ACCESS_TOKEN}" \

@@ -23,7 +23,7 @@ This section goes over the features included in this release, starting with a de
 Deploy a single OpenSearch cluster composed of multiple Juju applications. Each application executes any of the available roles in OpenSearch. Large deployments support a diverse range of deployment constraints, roles, and regions.
 * [How to set up a large deployment](/t/15573)
 
-### Security automations
+### Security automation
 
 Manage TLS certificates and passwords in single point with Juju integrations and rotate your TLS certificates without any downtime.
 
