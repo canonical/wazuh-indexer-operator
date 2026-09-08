@@ -24,7 +24,7 @@ this operator.
 ## Developing
 Install `tox`, `poetry`, and `charmcraftcache`
 
-Install `pipx`: https://pipx.pypa.io/stable/installation/
+Install `pipx`: https://pipx.pypa.io/stable/how-to/install-pipx.html
 ```shell
 pipx install tox
 pipx install poetry
