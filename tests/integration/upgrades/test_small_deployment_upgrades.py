@@ -17,10 +17,12 @@ from ..helpers import APP_NAME, CONFIG_OPTS, MODEL_CONFIG, set_watermark
 from ..helpers_deployments import wait_until
 from ..tls.test_tls import TLS_CERTIFICATES_APP_NAME, TLS_STABLE_CHANNEL
 from .helpers import (
+    PROFILES_REVISION,
     UPGRADE_PARAMS,
     VERSION_N,
     VERSION_N_MINUS_1,
     VERSION_N_MINUS_2,
+    VERSION_TO_REVISION,
     assert_rollback_to_revision,
     assert_upgrade_to_local,
     assert_upgrade_to_revision,
@@ -34,31 +36,6 @@ OPENSEARCH_ORIGINAL_CHARM_NAME = "wazuh-indexer"
 OPENSEARCH_CHANNEL = "4.11/edge"
 OPENSEARCH_STABLE_CHANNEL = "4.11/stable"
 
-
-PROFILES_REVISION = 185
-STARTING_VERSION = "4.11.0"
-
-
-VERSION_TO_REVISION = {
-    STARTING_VERSION: 5,
-}
-
-
-FROM_VERSION_PREFIX = "from_v{}_to_local"
-
-
-UPGRADE_INITIAL_VERSION = [
-    (
-        pytest.param(
-            version,
-            id=FROM_VERSION_PREFIX.format(version),
-            marks=pytest.mark.group(
-                id="two_version_upgrade" if version == STARTING_VERSION else "one_version_upgrade"
-            ),
-        )
-    )
-    for version in VERSION_TO_REVISION.keys()
-]
 
 charm = None
 
