@@ -50,6 +50,13 @@ logger = logging.getLogger(__name__)
 _1GB_IN_KB = 1024 * 1024  # 1GB in KB
 MAX_HEAP_SIZE = 31 * _1GB_IN_KB  # 31GB in KB
 
+# Hypervisors/container runtimes (e.g. LXD) commonly reserve a small amount of the
+# requested memory for the host/kernel, so the machine's reported `MemTotal` ends up
+# slightly below the nominal size requested via constraints (e.g. `mem=8G`). Allow a
+# small tolerance so profile checks don't flag machines that are effectively sized
+# correctly but report a few percent less than the nominal requirement.
+MEMORY_REQUIREMENT_TOLERANCE_RATIO = 0.05
+
 
 class ProfileMemoryRequirements(Model):
     """Memory requirements for a profile"""
@@ -170,20 +177,26 @@ class ProfilesManager:
     def check_memory_requirements(self, profile: OpenSearchProfile) -> List[str]:
         """Checks memory requirements for the unit."""
         memory_size = self.workload.meminfo()["MemTotal"]
+        required_memory_size = profile.memory_requirements.memory_size
 
-        if (
-            profile.memory_requirements.memory_size
-            and memory_size < profile.memory_requirements.memory_size
-        ):
+        if not required_memory_size:
+            return []
+
+        # Allow a small tolerance: hypervisors/container runtimes (e.g. LXD) commonly
+        # report a `MemTotal` slightly below the nominal memory requested via
+        # constraints (e.g. `mem=8G`), even though the machine is effectively sized
+        # correctly.
+        minimum_accepted_memory_size = required_memory_size * (
+            1 - MEMORY_REQUIREMENT_TOLERANCE_RATIO
+        )
+
+        if memory_size < minimum_accepted_memory_size:
             logger.error(
                 "Insufficient memory: %s < %s",
                 memory_size,
-                profile.memory_requirements.memory_size,
+                required_memory_size,
             )
-            return [
-                "Insufficient memory: %s < %s"
-                % (memory_size, profile.memory_requirements.memory_size)
-            ]
+            return ["Insufficient memory: %s < %s" % (memory_size, required_memory_size)]
 
         return []
 

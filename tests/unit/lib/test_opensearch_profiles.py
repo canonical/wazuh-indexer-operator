@@ -305,6 +305,81 @@ class TestPerformanceProfile(unittest.TestCase):
             self.charm._on_config_changed(MagicMock())
             set_jvm_heap_size.assert_called_with(4194304)
 
+    def test_profile_update_on_config_changed_memory_within_tolerance(self):
+        """Memory slightly below the nominal requirement (but within tolerance) isn't blocked.
+
+        Hypervisors/container runtimes (e.g. LXD) commonly report a `MemTotal` a few
+        percent below the nominal memory requested via constraints (e.g. `mem=8G`), even
+        though the machine is effectively sized correctly. This should not trip the
+        production profile's memory requirement check.
+        """
+        with (
+            patch(
+                "charms.opensearch.v0.state.OpenSearchApp.deployment_description",
+                new_callable=PropertyMock,
+                return_value=DeploymentDescription(
+                    app=App(id="opensearch"),
+                    config=PeerClusterConfig(
+                        cluster_name="opensearch", init_hold=False, roles=GeneratedRoles
+                    ),
+                    start=StartMode.WITH_GENERATED_ROLES,
+                    pending_directives=[],
+                    typ=DeploymentType.MAIN_ORCHESTRATOR,
+                    promotion_time=1,
+                ),
+            ),
+            patch(
+                "charms.opensearch.v0.opensearch_config.OpenSearchConfig.update_host_if_needed",
+                return_value=False,
+            ),
+            patch(
+                "charms.opensearch.v0.opensearch_distro.OpenSearchDistribution.is_node_up",
+                return_value=True,
+            ),
+            patch(
+                "charms.opensearch.v0.opensearch_distro.OpenSearchDistribution._apply_system_requirement",
+                return_value=True,
+            ),
+            # ~4.6% below the nominal 8GB requirement, within the 5% tolerance.
+            patch(
+                "charms.opensearch.v0.opensearch_distro.OpenSearchDistribution.meminfo",
+                return_value={"MemTotal": 8000000},
+            ),
+            patch(
+                "charms.opensearch.v0.state.OpenSearchApp.cluster_fleet_apps",
+                new_callable=PropertyMock(
+                    return_value={
+                        "opensearch": PeerClusterApp(
+                            app=App(id="opensearch"),
+                            roles=["cluster_manager", "data"],
+                            planned_units=3,
+                            units=["1", "2", "3"],
+                        ),
+                    }
+                ),
+            ),
+            patch(
+                "charms.opensearch.v0.opensearch_profile.ProfilesManager._current_peer_cluster_app",
+                return_value=PeerClusterApp(
+                    app=App(id="opensearch"),
+                    roles=["cluster_manager", "data"],
+                    planned_units=3,
+                    units=["1", "2", "3"],
+                ),
+            ),
+            patch(
+                "charms.opensearch.v0.opensearch_config.OpenSearchConfig.set_jvm_heap_size",
+            ) as set_jvm_heap_size,
+            patch(
+                "charms.opensearch.v0.opensearch_profile.ProfilesManager.config_profile",
+                new_callable=PropertyMock,
+                return_value=ProductionProfile(),
+            ),
+        ):
+            self.charm._on_config_changed(MagicMock())
+            assert "Insufficient memory" not in (self.charm.unit.status.message or "")
+            set_jvm_heap_size.assert_called_once()
+
     def test_profile_update_on_start_blocked(self):
         """Test the update of the JVM options."""
         with (
