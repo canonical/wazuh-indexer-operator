@@ -3,13 +3,22 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
 from azure.core.exceptions import AzureError, ResourceNotFoundError
 from botocore.exceptions import ClientError
+from charms.opensearch.v0.constants_charm import (
+    BackupCredentialIncorrect,
+    PeerClusterOrchestratorRelationName,
+)
 from charms.opensearch.v0.opensearch_exceptions import OpenSearchHttpError
 from charms.opensearch.v0.opensearch_health import HealthColors
+from charms.opensearch.v0.opensearch_snapshots import (
+    ObjectStorageType,
+    OpenSearchSnapshotEvents,
+)
 from charms.opensearch.v0.opensearch_snapshots import (
     OpenSearchSnapshotsManager as SnapshotsManager,
 )
@@ -851,3 +860,66 @@ class TestCreateGCSBucket(SnapshotsUnitTestFixtures):
 
         assert helper_security.verify_gcs_credentials(cfg) is False
         blob.delete.assert_not_called()
+
+
+class TestVerifyBackupCredentialsEvent:
+    """Tests for the (possibly deferred/stale) VerifyBackupCredentialsEvent handler.
+
+    A deferred VerifyBackupCredentialsEvent must not blindly trust that the
+    currently configured credentials are still the ones it was originally
+    scheduled to verify: if they have since become invalid, the handler must
+    report BackupCredentialIncorrect instead of masking it with a misleading
+    BackupMisconfiguration status coming from a repository check that is
+    bound to fail for an unrelated reason (e.g. a TLS error).
+    """
+
+    def _make_fake_self(self, *, object_storage_config):
+        fake_self = Mock()
+        fake_self.charm.snapshots_manager.get_storage_type.return_value = ObjectStorageType.S3
+        fake_self.charm.snapshots_manager.get_storage_config.return_value = object_storage_config
+        fake_self.charm.snapshots_manager.hash_credentials.return_value = "some-hash"
+        fake_self.charm.model.relations = {PeerClusterOrchestratorRelationName: []}
+        fake_self.charm.unit.is_leader.return_value = True
+        return fake_self
+
+    @staticmethod
+    def _s3_config():
+        return SimpleNamespace(
+            s3=SimpleNamespace(
+                credentials=SimpleNamespace(access_key="wrong", secret_key="wrong"),
+                tls_ca_chain=None,
+            ),
+            azure=None,
+            gcs=None,
+        )
+
+    def test_stale_event_with_now_invalid_credentials_sets_credential_incorrect(self, monkeypatch):
+        fake_self = self._make_fake_self(object_storage_config=self._s3_config())
+        monkeypatch.setattr(
+            "charms.opensearch.v0.opensearch_snapshots.verify_s3_credentials",
+            lambda *_a, **_k: False,
+        )
+
+        event = Mock()
+        OpenSearchSnapshotEvents._on_verify_backup_credentials(fake_self, event)
+
+        fake_self.charm.status.set.assert_called_once()
+        (status_arg,), kwargs = fake_self.charm.status.set.call_args
+        assert status_arg.message == BackupCredentialIncorrect
+        assert kwargs == {"app": True}
+        fake_self.charm.snapshots_manager.verify_repository.assert_not_called()
+        event.defer.assert_not_called()
+
+    def test_valid_credentials_proceed_to_repository_verification(self, monkeypatch):
+        fake_self = self._make_fake_self(object_storage_config=self._s3_config())
+        monkeypatch.setattr(
+            "charms.opensearch.v0.opensearch_snapshots.verify_s3_credentials",
+            lambda *_a, **_k: True,
+        )
+
+        event = Mock()
+        OpenSearchSnapshotEvents._on_verify_backup_credentials(fake_self, event)
+
+        fake_self.charm.snapshots_manager.verify_repository.assert_called_once_with(
+            ObjectStorageType.S3
+        )
