@@ -226,12 +226,29 @@ def _is_every_condition_on_app_met(
         any_match = False
         for status_val, messages in apps_full_statuses[app].items():
             any_match = any_match or (
-                app_status.value == status_val and app_status.message in (messages or ["", None])
+                app_status.value == status_val
+                and _status_message_matches(app_status.message, messages)
             )
         if not any_match:
             return False
 
     return True
+
+
+def _status_message_matches(actual_message: Optional[str], expected_messages: List[str]) -> bool:
+    """Check if the actual status message satisfies one of the expected messages.
+
+    A message is considered a match either if it's exactly equal to one of the expected
+    messages, or if it contains one of them as a substring. The latter allows tests to
+    assert on a specific requirement being reported without being tightly coupled to the
+    exact wording/ordering of other unrelated requirements that may be concatenated into
+    the same status message (e.g. multiple missing profile requirements joined together).
+    """
+    if not expected_messages:
+        return actual_message in ("", None)
+    if actual_message is None:
+        return False
+    return any(expected in actual_message for expected in expected_messages)
 
 
 def _is_every_condition_on_units_met(
@@ -259,7 +276,7 @@ def _is_every_condition_on_units_met(
             for status_val, messages in units_full_statuses[app]["units"].items():
                 any_match = any_match or (
                     unit.workload_status.value == status_val
-                    and unit.workload_status.message in (messages or ["", None])
+                    and _status_message_matches(unit.workload_status.message, messages)
                 )
             if not any_match:
                 return False
