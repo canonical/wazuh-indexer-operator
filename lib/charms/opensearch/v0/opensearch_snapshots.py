@@ -673,6 +673,37 @@ class OpenSearchSnapshotEvents(Object):
         if not object_storage_type or not object_storage_config:
             return
 
+        # This event may have been deferred from an earlier hook execution (e.g. while
+        # waiting for peer units to save credentials). The currently configured
+        # credentials may have changed since then (e.g. to intentionally-wrong
+        # credentials in a test, or a legitimate credentials rotation), so re-verify
+        # them here. Otherwise, a stale event could reach verify_repository() below
+        # and mask a real BackupCredentialIncorrect status with a misleading
+        # BackupMisconfiguration one (e.g. a TLS error talking to the storage backend
+        # with credentials that are actually invalid).
+        if (
+            (
+                object_storage_type == ObjectStorageType.AZURE
+                and not verify_azure_credentials(object_storage_config)
+            )
+            or (
+                object_storage_type == ObjectStorageType.S3
+                and not verify_s3_credentials(object_storage_config)
+            )
+            or (
+                object_storage_type == ObjectStorageType.GCS
+                and not verify_gcs_credentials(object_storage_config)
+            )
+        ):
+            logger.warning(
+                "%s object storage credentials not verified, skipping stale "
+                "repository verification.",
+                object_storage_type,
+            )
+            if self.charm.unit.is_leader():
+                self.charm.status.set(BlockedStatus(BackupCredentialIncorrect), app=True)
+            return
+
         if object_storage_config.s3:
             credential_dict = {
                 "access_key": object_storage_config.s3.credentials.access_key,
