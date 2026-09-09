@@ -837,11 +837,11 @@ class TestOpenSearchTLS(unittest.TestCase):
         # Old CA cert is saved with corresponding alias, new CA cert added to keystore
         assert run_cmd.call_count == 3
         assert re.search(
-            "opensearch.keytool -changealias -alias ca-0 -destalias old-ca-0",
+            "wazuh-indexer.keytool -changealias -alias ca-0 -destalias old-ca-0",
             run_cmd.call_args_list[0].args[0],
         )
         assert re.search(
-            "opensearch.keytool -importcert.* *-alias ca-0", run_cmd.call_args_list[1].args[0]
+            "wazuh-indexer.keytool -importcert.* *-alias ca-0", run_cmd.call_args_list[1].args[0]
         )
         assert (
             "chmod +r /var/snap/wazuh-indexer/current/etc/wazuh-indexer/certificates/ca.p12"

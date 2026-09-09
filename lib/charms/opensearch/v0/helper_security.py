@@ -42,7 +42,7 @@ LIBPATCH = 1
 logger = logging.getLogger(__name__)
 
 
-KEYTOOL = "opensearch.keytool"
+KEYTOOL = "wazuh-indexer.keytool"
 OLD_CA_PREFIX = "old-"
 
 
