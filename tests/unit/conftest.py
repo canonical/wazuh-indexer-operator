@@ -6,6 +6,7 @@ from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Dict
+from unittest.mock import MagicMock
 
 import pytest
 import yaml
@@ -17,6 +18,23 @@ from src.charm import OpenSearchOperatorCharm
 @pytest.fixture(autouse=True)
 def with_juju_secrets(monkeypatch):
     monkeypatch.setattr("ops.JujuVersion.has_secrets", True)
+
+
+@pytest.fixture(autouse=True)
+def mock_snap_cache(monkeypatch):
+    """Prevent charm construction from talking to the real snapd.
+
+    OpenSearchSnap.__init__ (src/opensearch.py) calls snap.SnapCache(), which
+    queries the local snapd HTTP API and raises SnapError if snapd isn't
+    installed/reachable. On machines without the wazuh-indexer snap (e.g. dev
+    boxes, some CI runners), this either raises immediately or, depending on
+    snapd's transient state, causes charm construction to retry for up to
+    ~25s before failing with a tenacity.RetryError - producing unit-test
+    failures that are unrelated to the test being run. Replace SnapCache with
+    a MagicMock so its instances (and any snap lookups) never hit the real
+    snapd, regardless of the local environment.
+    """
+    monkeypatch.setattr("charms.operator_libs_linux.v2.snap.SnapCache", MagicMock)
 
 
 def _load_yaml(path: str) -> Dict[str, Any]:
