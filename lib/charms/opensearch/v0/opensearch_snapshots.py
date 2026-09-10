@@ -131,6 +131,26 @@ class VerifyBackupCredentialsEvent(EventBase):
     """Event to verify backup credentials on main orchestrator leader unit."""
 
 
+def _object_storage_credentials_are_valid(
+    object_storage_type: ObjectStorageType,
+    object_storage_config: ObjectStorageConfig,
+) -> bool:
+    """Verify the currently configured object storage credentials are valid.
+
+    Handles both the direct (S3/AZURE/GCS) and peer-cluster-relayed
+    (S3_PCLUSTER/AZURE_PCLUSTER/GCS_PCLUSTER) storage types, since both use the
+    same underlying config shape and are equally susceptible to stale or
+    rotated credentials.
+    """
+    if object_storage_type in {ObjectStorageType.AZURE, ObjectStorageType.AZURE_PCLUSTER}:
+        return verify_azure_credentials(object_storage_config)
+    if object_storage_type in {ObjectStorageType.S3, ObjectStorageType.S3_PCLUSTER}:
+        return verify_s3_credentials(object_storage_config)
+    if object_storage_type in {ObjectStorageType.GCS, ObjectStorageType.GCS_PCLUSTER}:
+        return verify_gcs_credentials(object_storage_config)
+    return False
+
+
 class OpenSearchSnapshotEvents(Object):
     """Events class for Backups (snapshots)."""
 
@@ -681,20 +701,12 @@ class OpenSearchSnapshotEvents(Object):
         # and mask a real BackupCredentialIncorrect status with a misleading
         # BackupMisconfiguration one (e.g. a TLS error talking to the storage backend
         # with credentials that are actually invalid).
-        if (
-            (
-                object_storage_type == ObjectStorageType.AZURE
-                and not verify_azure_credentials(object_storage_config)
-            )
-            or (
-                object_storage_type == ObjectStorageType.S3
-                and not verify_s3_credentials(object_storage_config)
-            )
-            or (
-                object_storage_type == ObjectStorageType.GCS
-                and not verify_gcs_credentials(object_storage_config)
-            )
-        ):
+        #
+        # This also covers the *_PCLUSTER variants (non-main-orchestrator clusters
+        # relaying credentials from the main orchestrator), which use the same
+        # underlying storage config shape (`.s3`/`.azure`/`.gcs`) as their direct
+        # counterparts and are just as susceptible to stale/rotated credentials.
+        if not _object_storage_credentials_are_valid(object_storage_type, object_storage_config):
             logger.warning(
                 "%s object storage credentials not verified, skipping stale "
                 "repository verification.",
@@ -750,6 +762,30 @@ class OpenSearchSnapshotEvents(Object):
         try:
             self.charm.snapshots_manager.verify_repository(object_storage_type)
         except OpenSearchHttpError as e:
+            logger.error(
+                "Failed to verify snapshot repository after credentials verification. "
+                "Error: %s, response_body=%r",
+                e,
+                getattr(e, "response_body", None),
+            )
+            # The repository check itself can fail (e.g. HTTP 500 from OpenSearch)
+            # because the credentials are actually invalid, not because of some
+            # transient/misconfiguration issue. Re-check the credentials directly
+            # so we report the correct, terminal BackupCredentialIncorrect status
+            # instead of looping forever on a misleading BackupMisconfiguration
+            # status via repeated defers.
+            if not _object_storage_credentials_are_valid(
+                object_storage_type, object_storage_config
+            ):
+                logger.warning(
+                    "%s object storage credentials found invalid while diagnosing "
+                    "repository verification failure.",
+                    object_storage_type,
+                )
+                if self.charm.unit.is_leader():
+                    self.charm.status.set(BlockedStatus(BackupCredentialIncorrect), app=True)
+                return
+
             self.charm.status.set(
                 BlockedStatus(
                     BackupMisconfiguration.format(
@@ -757,12 +793,6 @@ class OpenSearchSnapshotEvents(Object):
                     )
                 ),
                 app=True,
-            )
-            logger.error(
-                "Failed to verify snapshot repository after credentials verification. "
-                "Error: %s, response_body=%r",
-                e,
-                getattr(e, "response_body", None),
             )
             event.defer()
             return
