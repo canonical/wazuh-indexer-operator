@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
+import asyncio
 import json
 import logging
 import subprocess
@@ -85,7 +86,7 @@ def _dump_juju_logs(model: str, unit: Optional[str] = None, lines: int = 500) ->
     if unit:
         pos = unit.rfind("-")
         if pos != -1:
-            unit = f"{unit[:pos]}/{unit[pos+1:]}"  # noqa
+            unit = f"{unit[:pos]}/{unit[pos + 1 :]}"  # noqa
         cmd = f"{cmd} --include={unit}"
 
     cmd = f"{cmd} --model={model} --limit {lines} > {target_file}; cat {target_file}"
@@ -119,6 +120,46 @@ async def get_unit_hostname(ops_test: OpsTest, unit_id: int, app: str) -> str:
     return hostname.strip()
 
 
+async def _get_unit(
+    ops_test: OpsTest,
+    app: str,
+    raw_app: dict[str, Any],
+    unit_name: str,
+    raw_unit: dict[str, Any],
+    subordinate: bool = False,
+) -> Unit:
+    """Create a Unit object from raw unit data."""
+    unit_id = int(unit_name.split("/")[-1])
+
+    app_id = f"{ops_test.model.uuid}/{app}"
+    app_short_id = md5(app_id.encode()).hexdigest()[:3]
+    machine_id = -1 if subordinate else int(raw_unit["machine"])
+
+    return Unit(
+        id=unit_id,
+        short_name=unit_name.replace("/", "-"),
+        name=f"{unit_name.replace('/', '-')}.{app_short_id}",
+        ip=raw_unit["public-address"],
+        hostname=await get_unit_hostname(ops_test, unit_id, app),
+        is_leader=raw_unit.get("leader", False),
+        machine_id=machine_id,
+        workload_status=Status(
+            value=raw_unit["workload-status"]["current"],
+            since=raw_unit["workload-status"]["since"],
+            message=raw_unit["workload-status"].get("message"),
+        ),
+        agent_status=Status(
+            value=raw_unit["juju-status"]["current"],
+            since=raw_unit["juju-status"]["since"],
+        ),
+        app_status=Status(
+            value=raw_app["application-status"]["current"],
+            since=raw_app["application-status"]["since"],
+            message=raw_app["application-status"].get("message"),
+        ),
+    )
+
+
 async def get_application_units(ops_test: OpsTest, app: str) -> List[Unit]:
     """Get fully detailed units of an application."""
     # Juju incorrectly reports the IP addresses after the network is restored this is reported as a
@@ -126,42 +167,13 @@ async def get_application_units(ops_test: OpsTest, app: str) -> List[Unit]:
     # `get_unit_ip` should be replaced with `.public_address`
     raw_app = get_raw_application(ops_test, app)
     units = []
-    for u_name, unit in raw_app["units"].items():
-        unit_id = int(u_name.split("/")[-1])
-
-        if not unit.get("public-address"):
+    for u_name, raw_unit in raw_app["units"].items():
+        if not raw_unit.get("public-address"):
             # unit not ready yet...
             continue
+        units.append(_get_unit(ops_test, app, raw_app, u_name, raw_unit))
 
-        app_id = f"{ops_test.model.uuid}/{app}"
-        app_short_id = md5(app_id.encode()).hexdigest()[:3]
-        unit = Unit(
-            id=unit_id,
-            short_name=u_name.replace("/", "-"),
-            name=f"{u_name.replace('/', '-')}.{app_short_id}",
-            ip=unit["public-address"],
-            hostname=await get_unit_hostname(ops_test, unit_id, app),
-            is_leader=unit.get("leader", False),
-            machine_id=int(unit["machine"]),
-            workload_status=Status(
-                value=unit["workload-status"]["current"],
-                since=unit["workload-status"]["since"],
-                message=unit["workload-status"].get("message"),
-            ),
-            agent_status=Status(
-                value=unit["juju-status"]["current"],
-                since=unit["juju-status"]["since"],
-            ),
-            app_status=Status(
-                value=raw_app["application-status"]["current"],
-                since=raw_app["application-status"]["since"],
-                message=raw_app["application-status"].get("message"),
-            ),
-        )
-
-        units.append(unit)
-
-    return units
+    return await asyncio.gather(*units) if units else []
 
 
 async def get_application_subordinate_units(
@@ -174,48 +186,19 @@ async def get_application_subordinate_units(
     raw_app = get_raw_application(ops_test, app)
     units = []
     for principal_unit in get_raw_application(ops_test, principal_app)["units"].values():
-        u_name, unit = None, None
-        for u_name, unit in principal_unit["subordinates"].items():
-            if app in u_name:
+        u_name, raw_unit = None, None
+        for u_name, raw_unit in principal_unit["subordinates"].items():
+            if u_name.startswith(f"{app}/"):
                 break
         else:
             raise ValueError(f"Subordinate unit for {app} not found in {principal_app}")
 
-        unit_id = int(u_name.split("/")[-1])
-
-        if not unit.get("public-address"):
+        if not raw_unit.get("public-address"):
             # unit not ready yet...
             continue
 
-        app_id = f"{ops_test.model.uuid}/{app}"
-        app_short_id = md5(app_id.encode()).hexdigest()[:3]
-        unit = Unit(
-            id=unit_id,
-            short_name=u_name.replace("/", "-"),
-            name=f"{u_name.replace('/', '-')}.{app_short_id}",
-            ip=unit["public-address"],
-            hostname=await get_unit_hostname(ops_test, unit_id, app),
-            is_leader=unit.get("leader", False),
-            machine_id=-1,
-            workload_status=Status(
-                value=unit["workload-status"]["current"],
-                since=unit["workload-status"]["since"],
-                message=unit["workload-status"].get("message"),
-            ),
-            agent_status=Status(
-                value=unit["juju-status"]["current"],
-                since=unit["juju-status"]["since"],
-            ),
-            app_status=Status(
-                value=raw_app["application-status"]["current"],
-                since=raw_app["application-status"]["since"],
-                message=raw_app["application-status"].get("message"),
-            ),
-        )
-
-        units.append(unit)
-
-    return units
+        units.append(_get_unit(ops_test, app, raw_app, u_name, raw_unit, subordinate=True))
+    return await asyncio.gather(*units) if units else []
 
 
 def _is_every_condition_on_app_met(
@@ -243,12 +226,29 @@ def _is_every_condition_on_app_met(
         any_match = False
         for status_val, messages in apps_full_statuses[app].items():
             any_match = any_match or (
-                app_status.value == status_val and app_status.message in (messages or ["", None])
+                app_status.value == status_val
+                and _status_message_matches(app_status.message, messages)
             )
         if not any_match:
             return False
 
     return True
+
+
+def _status_message_matches(actual_message: Optional[str], expected_messages: List[str]) -> bool:
+    """Check if the actual status message satisfies one of the expected messages.
+
+    A message is considered a match either if it's exactly equal to one of the expected
+    messages, or if it contains one of them as a substring. The latter allows tests to
+    assert on a specific requirement being reported without being tightly coupled to the
+    exact wording/ordering of other unrelated requirements that may be concatenated into
+    the same status message (e.g. multiple missing profile requirements joined together).
+    """
+    if not expected_messages:
+        return actual_message in ("", None)
+    if actual_message is None:
+        return False
+    return any(expected in actual_message for expected in expected_messages)
 
 
 def _is_every_condition_on_units_met(
@@ -276,7 +276,7 @@ def _is_every_condition_on_units_met(
             for status_val, messages in units_full_statuses[app]["units"].items():
                 any_match = any_match or (
                     unit.workload_status.value == status_val
-                    and unit.workload_status.message in (messages or ["", None])
+                    and _status_message_matches(unit.workload_status.message, messages)
                 )
             if not any_match:
                 return False
@@ -343,6 +343,36 @@ async def _is_every_condition_met(
             return False
 
     return True
+
+
+async def wait_until_condition_on_units(
+    ops_test, app: str, condition, timeout: int = 1200
+) -> None:
+    """Block and wait until a condition is met on the units in `app` or timeout."""
+    try:
+        logger.info("\n\n\n")
+        logger.info(
+            subprocess.check_output(
+                f"juju status --model {ops_test.model.info.name}", shell=True
+            ).decode("utf-8")
+        )
+        for attempt in Retrying(stop=stop_after_delay(timeout), wait=wait_fixed(10)):
+            with attempt:
+                logger.info("Waiting for condition...")
+                units = await get_application_units(ops_test, app)
+                if condition(units):
+                    logger.info(f"{now()} -- Waiting for condition: complete.\n\n\n")
+                    return
+                raise Exception
+    except RetryError:
+        logger.error("wait_until_condition_on_units -- Timed out!\n\n\n")
+        logger.info(
+            subprocess.check_output(
+                f"juju status --model {ops_test.model.info.name}", shell=True
+            ).decode("utf-8")
+        )
+        _dump_juju_logs(model=ops_test.model.info.name, lines=3000)
+        raise
 
 
 async def wait_until(  # noqa: C901

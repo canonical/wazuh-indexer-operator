@@ -19,19 +19,24 @@ jobs:
         uses: actions/checkout@v4
       - name: Set up environment
         run: |
-          sudo snap install charmcraft --classic --channel 3.x/stable
+          sudo snap install go --classic
+          go install github.com/canonical/spread/cmd/spread@latest
           pipx install tox poetry
       - name: Collect spread jobs
         id: collect-jobs
         shell: python
         run: |
           import json
+          import pathlib
           import os
           import subprocess
 
           spread_jobs = (
               subprocess.run(
-                  ["charmcraft", "test", "--list", "github-ci"], capture_output=True, check=True, text=True
+                  [pathlib.Path.home() / "go/bin/spread", "-list", "github-ci"],
+                  capture_output=True,
+                  check=True,
+                  text=True,
               )
               .stdout.strip()
               .split("\n")
@@ -107,6 +112,20 @@ jobs:
         with:
           pattern: ${{ inputs.artifact-prefix }}-*
           merge-multiple: true
+      # TODO Remove pinned image when problem is resolved on jammy
+      - name: Pin lxc image for jammy
+        run: |
+          sudo lxc image copy ubuntu:568f69ff1166 local:
+          sudo lxc image alias create "juju/ubuntu@22.04/amd64" 568f69ff1166
+      # TODO: remove when https://github.com/juju/juju/issues/18900 is fixed.
+      # Pre-cache the jammy VM image under the alias juju spread jobs use, so that when
+      # spread later provisions several LXD VMs concurrently in the same model, they all
+      # find the image already cached/aliased instead of racing each other to download it
+      # (which fails with "Alias already exists: juju/ubuntu@22.04/amd64/vm").
+      - name: Pre-cache lxc image for jammy VMs
+        timeout-minutes: 10
+        run: |
+          sudo lxc image copy ubuntu:22.04 local: --vm --alias "juju/ubuntu@22.04/amd64/vm"
       - name: Run spread job
         timeout-minutes: 180
         id: spread

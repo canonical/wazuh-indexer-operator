@@ -3,7 +3,8 @@
 # See LICENSE file for licensing details.
 
 name: cla-check
-on: [pull_request]
+on:
+  pull_request:
 
 jobs:
   cla-check:

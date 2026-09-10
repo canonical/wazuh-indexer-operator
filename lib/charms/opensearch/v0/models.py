@@ -2,15 +2,21 @@
 # See LICENSE file for licensing details.
 
 """Cluster-related data structures / model classes."""
+import base64
+import binascii
 import json
 import logging
 import re
 from abc import ABC
 from datetime import datetime
 from hashlib import md5
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
-from charms.opensearch.v0.constants_secrets import AZURE_CREDENTIALS, S3_CREDENTIALS
+from charms.opensearch.v0.constants_secrets import (
+    AZURE_CREDENTIALS,
+    GCS_CREDENTIALS,
+    S3_CREDENTIALS,
+)
 from charms.opensearch.v0.helper_enums import BaseStrEnum
 from pydantic import BaseModel, Field, root_validator, validator
 from pydantic.utils import ROOT_KEY
@@ -24,11 +30,6 @@ LIBAPI = 0
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
 LIBPATCH = 1
-
-
-MIN_HEAP_SIZE = 1024 * 1024  # 1GB in KB
-MAX_HEAP_SIZE = 32 * MIN_HEAP_SIZE  # 32GB in KB
-
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,7 @@ class Model(ABC, BaseModel):
         return cls.parse_raw(input_str_dict)
 
     @staticmethod
-    def sort_payload(payload: any) -> any:
+    def sort_payload(payload: Any) -> Any:
         """Sort input payloads to avoid rel-changed events for same unordered objects."""
         if isinstance(payload, dict):
             # Sort dictionary by keys
@@ -167,7 +168,6 @@ class PerformanceType(BaseStrEnum):
     """Performance types available."""
 
     PRODUCTION = "production"
-    STAGING = "staging"
     TESTING = "testing"
 
 
@@ -225,7 +225,6 @@ class PeerClusterConfig(Model):
     # We have a breaking change in the model
     # For older charms, this field will not exist and they will be set in the
     # profile called "testing".
-    profile: Optional[PerformanceType] = PerformanceType.TESTING
     data_temperature: Optional[str] = None
 
     @root_validator
@@ -283,11 +282,25 @@ class S3RelDataCredentials(Model):
 
     access_key: str = Field(alias="access-key", default=None)
     secret_key: str = Field(alias="secret-key", default=None)
+    s3_tls_ca_chain: Optional[Union[str, List[str]]] = Field(default=None, alias="s3-tls-ca-chain")
 
     class Config:
         """Model config of this pydantic model."""
 
         allow_population_by_field_name = True
+
+
+class JWTAuthConfiguration(Model):
+    """Model class for the configuration parameters of JWT authentication."""
+
+    signing_key: str
+    jwt_header: Optional[str] = None
+    jwt_url_parameter: Optional[str] = None
+    roles_key: str
+    subject_key: Optional[str] = None
+    required_audience: Optional[str] = None
+    required_issuer: Optional[str] = None
+    jwt_clock_skew_tolerance_seconds: Optional[int] = None
 
 
 class S3RelData(Model):
@@ -302,8 +315,8 @@ class S3RelData(Model):
     base_path: Optional[str] = Field(alias="path", default=None)
     protocol: Optional[str] = None
     storage_class: Optional[str] = Field(alias="storage-class", default=None)
-    tls_ca_chain: Optional[str] = Field(alias="tls-ca-chain", default=None)
-    credentials: S3RelDataCredentials = Field(alias=S3_CREDENTIALS, default=S3RelDataCredentials())
+    tls_ca_chain: Optional[Union[str, List[str]]] = Field(default=None, alias="tls-ca-chain")
+    credentials: S3RelDataCredentials = Field(alias=S3_CREDENTIALS)
     path_style_access: bool = Field(alias="s3-uri-style", default=False)
 
     class Config:
@@ -337,6 +350,22 @@ class S3RelData(Model):
         values["base_path"] = base_path or None
 
         return values
+
+    @validator("tls_ca_chain", pre=True)
+    def _tls_chain(cls, v):  # noqa: N805
+        if v is None:
+            return None
+        if isinstance(v, (bytes, bytearray)):
+            v = v.decode()
+        if isinstance(v, list):
+            return "\n".join(s.strip() for s in v if s)
+        if isinstance(v, dict):
+            chain = v.get("chain")
+            if isinstance(chain, list):
+                return "\n".join(s.strip() for s in chain if s)
+
+            return json.dumps(v)
+        return str(v)
 
     @validator("path_style_access", pre=True)
     def change_path_style_type(cls, value) -> bool:  # noqa: N805
@@ -464,6 +493,111 @@ class AzureRelData(Model):
         return cls.from_dict(dict(input_dict) | {AZURE_CREDENTIALS: creds.dict()})
 
 
+class GcsRelDataCredentials(Model):
+    """Model class for credentials passed on the gcs relation."""
+
+    secret_key: Optional[str] = Field(alias="secret-key", default=None)
+
+    class Config:
+        """Model config of this pydantic model."""
+
+        allow_population_by_field_name = True
+
+    @validator("secret_key", pre=True)
+    def _normalize_secret_key(cls, values):  # noqa: N805
+        """Accept either raw JSON or base64-encoded JSON"""
+        if values is None:
+            return None
+
+        content = values.decode() if isinstance(values, (bytes, bytearray)) else str(values)
+        if not (content := content.strip()):
+            return None
+
+        # already JSON
+        if content.startswith("{") and content.endswith("}"):
+            # validate JSON shape
+            json.loads(content)
+            return content
+
+        # base64 (urlsafe)
+        try:
+            decoded_bytes = base64.b64decode(content, altchars=b"-_", validate=True)
+            decoded_text = decoded_bytes.decode("utf-8").strip()
+            json.loads(decoded_text)
+            return decoded_text
+        except (binascii.Error, ValueError, UnicodeDecodeError, json.JSONDecodeError) as e:
+            raise ValueError("secret-key is not valid JSON (raw or base64-encoded)") from e
+
+
+class GcsRelData(Model):
+    """Model class for the GCS relation data.
+
+    This model should receive the data directly from the relation and map it to a model.
+    """
+
+    bucket: str = Field(default="")
+    base_path: Optional[str] = Field(alias="path", default=None)
+    storage_class: Optional[str] = Field(alias="storage-class", default=None)
+    credentials: GcsRelDataCredentials = Field(
+        alias=GCS_CREDENTIALS, default_factory=GcsRelDataCredentials
+    )
+
+    class Config:
+        """Model config of this pydantic model."""
+
+        allow_population_by_field_name = True
+
+    @root_validator
+    def validate_core_fields(cls, values):  # noqa: N805
+        """Validate the core fields of the gcs relation data."""
+        creds = values.get("credentials")
+        if not creds or not creds.secret_key:
+            raise ValueError("Missing fields: secret-key")
+
+        if not values.get("bucket"):
+            raise ValueError("Missing field: bucket")
+
+        # remove any duplicate, prefix or trailing "/" characters
+        if base_path := values.get("base_path"):
+            base_path = re.sub(r"/+", "/", base_path).strip().strip("/")
+        values["base_path"] = base_path or None
+
+        return values
+
+    @validator(GCS_CREDENTIALS, check_fields=False)
+    def ensure_secret_content(cls, conf: Dict[str, str] | GcsRelDataCredentials):  # noqa: N805):
+        """Ensure the secret content is set."""
+        if not conf:
+            return None
+
+        data = conf if isinstance(conf, dict) else conf.dict(by_alias=True, exclude_none=True)
+        for v in data.values():
+            if isinstance(v, str) and v.startswith("secret://"):
+                raise ValueError(f"The secret content must be passed, received {v} instead")
+        return conf
+
+    @classmethod
+    def from_relation(cls, input_dict: Optional[Dict[str, Any]]):
+        """Create a new instance of this class from a json/dict repr.
+
+        This method creates a nested GcsRelDataCredentials object from the input dict.
+        """
+        if not input_dict:
+            return None
+        creds = GcsRelDataCredentials(**input_dict)
+        merged = {**input_dict}
+        merged[GCS_CREDENTIALS] = creds.dict(by_alias=True, exclude_none=True)
+        return cls.parse_obj(merged)
+
+
+class ObjectStorageConfig(Model):
+    """Model class for the object storage config - for all clouds."""
+
+    s3: S3RelData | None = None
+    azure: AzureRelData | None = None
+    gcs: GcsRelData | None = None
+
+
 class PeerClusterRelDataCredentials(Model):
     """Model class for credentials passed on the PCluster relation."""
 
@@ -476,6 +610,7 @@ class PeerClusterRelDataCredentials(Model):
     admin_tls: Optional[Dict[str, Optional[str]]]
     s3: Optional[S3RelDataCredentials]
     azure: Optional[AzureRelDataCredentials]
+    gcs: Optional[GcsRelDataCredentials]
 
 
 class PeerClusterApp(Model):
@@ -501,6 +636,22 @@ class PeerClusterFleetApps(Model):
         return self.__root__[item]
 
 
+class PluginConfigInfo(Model):
+    """Model class for representing data needed to add or remove plugin configuration"""
+
+    relation_name: Optional[str] = None
+    secret_id: Optional[str] = None
+    cleanup: dict[str, list[str]] = Field(default_factory=dict)
+
+    def add_cleanup_items(self, cleanup: dict[str, list[str]]) -> None:
+        """Merge items into cleanup dictionary avoiding duplicates."""
+        for key, items in cleanup.items():
+            current = self.cleanup.setdefault(key, [])
+            for item in items:
+                if item not in current:
+                    current.append(item)
+
+
 class PeerClusterRelData(Model):
     """Model class for the PCluster relation data."""
 
@@ -509,6 +660,8 @@ class PeerClusterRelData(Model):
     credentials: PeerClusterRelDataCredentials
     deployment_desc: Optional[DeploymentDescription]
     security_index_initialised: bool = False
+    first_data_node: Optional[str] = None
+    plugins: Optional[Dict[str, PluginConfigInfo]] = None
 
 
 class PeerClusterRelErrorData(Model):
@@ -545,60 +698,3 @@ class PeerClusterOrchestrators(Model):
         self.main_app = self.failover_app
         self.main_rel_id = self.failover_rel_id
         self.delete("failover")
-
-
-class OpenSearchPerfProfile(Model):
-    """Generates an immutable description of the performance profile."""
-
-    typ: PerformanceType
-    heap_size_in_kb: int = MIN_HEAP_SIZE
-    opensearch_yml: Dict[str, str] = {}
-    charmed_index_template: Dict[str, str] = {}
-    charmed_component_templates: Dict[str, str] = {}
-
-    @root_validator
-    def set_options(cls, values):  # noqa: N805
-        """Generate the attributes depending on the input."""
-        # Check if PerformanceType has been rendered correctly
-        # if an user creates the OpenSearchPerfProfile
-        if "typ" not in values:
-            raise AttributeError("Missing 'typ' attribute.")
-
-        if values["typ"] == PerformanceType.TESTING:
-            values["heap_size_in_kb"] = MIN_HEAP_SIZE
-            return values
-
-        mem_total = OpenSearchPerfProfile.meminfo()["MemTotal"]
-        mem_percent = 0.50 if values["typ"] == PerformanceType.PRODUCTION else 0.25
-
-        values["heap_size_in_kb"] = min(int(mem_percent * mem_total), MAX_HEAP_SIZE)
-
-        if values["typ"] != PerformanceType.TESTING:
-            values["opensearch_yml"] = {"indices.memory.index_buffer_size": "25%"}
-
-            values["charmed_index_template"] = {
-                "charmed-index-tpl": {
-                    "index_patterns": ["*"],
-                    "template": {
-                        "settings": {
-                            "number_of_replicas": "1",
-                        },
-                    },
-                },
-            }
-
-        return values
-
-    @staticmethod
-    def meminfo() -> dict[str, float]:
-        """Read the /proc/meminfo file and return the values.
-
-        According to the kernel source code, the values are always in kB:
-            https://github.com/torvalds/linux/blob/
-                2a130b7e1fcdd83633c4aa70998c314d7c38b476/fs/proc/meminfo.c#L31
-        """
-        with open("/proc/meminfo") as f:
-            meminfo = f.read().split("\n")
-            meminfo = [line.split() for line in meminfo if line.strip()]
-
-        return {line[0][:-1]: float(line[1]) for line in meminfo}

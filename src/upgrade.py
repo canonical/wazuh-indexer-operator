@@ -33,6 +33,9 @@ if typing.TYPE_CHECKING:
 PEER_RELATION_ENDPOINT_NAME = "upgrade-version-a"
 PRECHECK_ACTION_NAME = "pre-upgrade-check"
 RESUME_ACTION_NAME = "resume-upgrade"
+COMPATIBILITY_MATRIX = {
+    "2.19.4": {"2.18.0", "2.19.0", "2.19.1", "2.19.2", "2.19.3"},
+}
 
 
 def unit_number(unit_: ops.Unit) -> int:
@@ -49,11 +52,7 @@ class PrecheckFailed(status_exception.StatusException):
 
     def __init__(self, message: str):
         self.message = message
-        super().__init__(
-            ops.BlockedStatus(
-                f"Rollback with `juju refresh`. Pre-upgrade check failed: {self.message}"
-            )
-        )
+        super().__init__(ops.BlockedStatus(f"Pre-upgrade check failed: {self.message}"))
 
 
 class UnitState(str, enum.Enum):
@@ -84,6 +83,8 @@ class Upgrade(abc.ABC):
             "workload": "workload_version",
         }.items():
             self._current_versions[version] = pathlib.Path(file_name).read_text().strip()
+
+        self._charm.reconcile_compatibility_matrix()
 
     @property
     def unit_state(self) -> typing.Optional[UnitState]:
@@ -171,11 +172,9 @@ class Upgrade(abc.ABC):
             # Statuses over 120 characters are truncated in `juju status` as of juju 3.1.6 and
             # 2.9.45
             return ops.BlockedStatus(
-                f"Upgrading. Verify highest unit is healthy & run `{RESUME_ACTION_NAME}` action. To rollback, `juju refresh` to last revision"
+                f"Upgrading. Verify highest unit is healthy & run `{RESUME_ACTION_NAME}` action."
             )
-        return ops.MaintenanceStatus(
-            "Upgrading. To rollback, `juju refresh` to the previous revision"
-        )
+        return ops.MaintenanceStatus("Upgrading.")
 
     @property
     def versions_set(self) -> bool:
@@ -292,10 +291,46 @@ class Upgrade(abc.ABC):
                 raise PrecheckFailed("Not all units are online for the current app.")
 
             if (
-                self._charm.backup.backup_manager.is_set()
-                and not self._charm.backup.backup_manager.is_idle()
+                self._charm.snapshots_manager.is_restore_in_progress()
+                or self._charm.snapshots_manager.is_snapshot_in_progress()
             ):
                 raise PrecheckFailed("Backup or restore is in progress")
 
         except OpenSearchHttpError:
             raise PrecheckFailed("Cluster is unreachable")
+
+    @property
+    def is_rollback(self) -> bool:
+        """Whether this upgrade is a rollback"""
+        unit_bag_version_str = self._unit_databag.get("workload_version")
+        if not self.versions_set or unit_bag_version_str is None:
+            return False
+
+        unit_bag_version = poetry_version.Version.parse(unit_bag_version_str)
+        version_on_disk = poetry_version.Version.parse(self._current_versions["workload"])
+        logger.debug("Checking if rollback: %s > %s", str(unit_bag_version), str(version_on_disk))
+        return unit_bag_version > version_on_disk
+
+    @property
+    def can_rollback(self) -> bool:
+        """Whether rollback is supported to previous versions"""
+        unit_bag_version = self._unit_databag.get("workload_version")
+        if not self.versions_set or unit_bag_version is None:
+            return False
+
+        version_on_disk = self._current_versions["workload"]
+        compatibility_matrix = self._charm.reconcile_compatibility_matrix()
+
+        if (
+            str(unit_bag_version) in compatibility_matrix
+            and str(version_on_disk) in compatibility_matrix[str(unit_bag_version)]
+        ):
+            logger.debug(
+                "Rollback supported from %s to %s",
+                unit_bag_version,
+                version_on_disk,
+            )
+            return True
+
+        logger.warning("Rollback not supported from %s to %s", unit_bag_version, version_on_disk)
+        return False

@@ -35,7 +35,8 @@ logger = logging.getLogger(__name__)
 
 
 TLS_CERTIFICATES_APP_NAME = "self-signed-certificates"
-TLS_STABLE_CHANNEL = "latest/stable"
+# TODO update the docs to reflect the new channel once released
+TLS_STABLE_CHANNEL = "1/stable"
 # The expiry time of the secret carrying the certificate is set to 3 minutes for testing
 SECRET_EXPIRY_TIME = 180
 # Wait time for the secret to expire and be renewed
@@ -121,7 +122,10 @@ async def test_tls_renewal(ops_test: OpsTest) -> None:
         units_statuses=["active"],
         wait_for_exact_units=len(UNIT_IDS),
         idle_period=15,
-        timeout=60,
+        # Cert reload normally happens live via the API, but if OpenSearch rejects the
+        # hot-reloaded cert it falls back to a full restart, which is slower than a plain
+        # reload. Allow enough time for that fallback path to converge instead of flaking.
+        timeout=300,
     )
 
     updated_certs = await get_loaded_tls_certificates(ops_test, leader_unit_ip)
@@ -146,7 +150,8 @@ async def test_tls_renewal(ops_test: OpsTest) -> None:
         units_statuses=["active"],
         wait_for_exact_units=len(UNIT_IDS),
         idle_period=5,
-        timeout=30,
+        # Same restart-fallback tolerance as the unit-transport check above.
+        timeout=180,
     )
 
     updated_certs = await get_loaded_tls_certificates(ops_test, units[non_leader_id])
