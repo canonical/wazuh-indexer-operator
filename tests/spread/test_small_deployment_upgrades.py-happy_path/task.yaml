@@ -1,8 +1,13 @@
+# Disabled: every test in the "happy_path_upgrade" group is currently skipped because
+# no published wazuh-indexer charm revision exists for VERSION_N_MINUS_2 (see
+# tests/integration/upgrades/helpers.py). Running this job only spins up a runner to
+# execute skipped tests. Re-enable (remove the ".disabled-..." suffix below) once a
+# real, published wazuh-indexer revision for an older version is available.
 summary: test_small_deployment_upgrades.py
 environment:
   TEST_MODULE: upgrades/test_small_deployment_upgrades.py
 systems:
-  - self-hosted-linux-amd64-noble-xlarge
+  - self-hosted-linux-amd64-noble-xlarge.disabled-until-a-published-wazuh-indexer-revision-for-an-older-version-exists
 execute: |
   tox run -e integration -- "tests/integration/$TEST_MODULE" --model testing --alluredir="$SPREAD_TASK/allure-results" -m 'group(id="happy_path_upgrade")'
 artifacts:
