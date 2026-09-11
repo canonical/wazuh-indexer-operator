@@ -91,6 +91,10 @@ async def _build_env(ops_test: OpsTest, version: str, series) -> None:
 @pytest.mark.group(id="happy_path_upgrade")
 @pytest.mark.abort_on_fail
 @pytest.mark.skip_if_deployed
+@pytest.mark.skip(
+    reason="No published wazuh-indexer charm revision exists for "
+    f"version {VERSION_N_MINUS_2}; multi-version upgrade scenario disabled."
+)
 async def test_deploy_latest_from_channel(ops_test: OpsTest, series) -> None:
     """Deploy OpenSearch."""
     await _build_env(ops_test, VERSION_N_MINUS_2, series)

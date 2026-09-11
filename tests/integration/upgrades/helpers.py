@@ -38,12 +38,25 @@ VERSION_TO_REVISION = {
 
 FROM_VERSION_PREFIX = "from_v{}_to_local"
 
+# NOTE: VERSION_TO_REVISION[VERSION_N_MINUS_2] points at a charm revision that does not
+# exist for the "wazuh-indexer" charm on Charmhub (those revision numbers were inherited
+# from the upstream opensearch-operator repo). Until a real, published wazuh-indexer
+# revision for an older version is available, the "two_version_upgrade" scenario is
+# skipped to avoid failing to resolve a non-existent charm revision.
 UPGRADE_PARAMS = [
     pytest.param(
         version,
         id=FROM_VERSION_PREFIX.format(version),
-        marks=pytest.mark.group(
-            id="two_version_upgrade" if version == VERSION_N_MINUS_2 else "one_version_upgrade"
+        marks=(
+            [
+                pytest.mark.group(id="two_version_upgrade"),
+                pytest.mark.skip(
+                    reason="No published wazuh-indexer charm revision exists for "
+                    f"version {VERSION_N_MINUS_2}; multi-version upgrade scenario disabled."
+                ),
+            ]
+            if version == VERSION_N_MINUS_2
+            else pytest.mark.group(id="one_version_upgrade")
         ),
     )
     for version in VERSION_TO_REVISION.keys()
