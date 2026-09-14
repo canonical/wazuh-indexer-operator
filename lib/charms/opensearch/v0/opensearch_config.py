@@ -204,6 +204,46 @@ class OpenSearchConfig:
             regex=True,
         )
 
+    def set_s3_truststore(self, store_path: str, store_pwd: str) -> None:
+        """Wire a custom PKCS12 trust store (holding object-storage CAs) into the JVM.
+
+        This is required for the OpenSearch JVM process itself (e.g. the S3
+        repository/snapshot plugin) to trust custom/self-signed CAs configured
+        for object storage endpoints, on top of the JDK's own default trust
+        anchors -- `store_path` must already contain those (see
+        helper_security.seed_default_trust_anchors), since these system
+        properties fully replace, rather than extend, the JVM's default trust
+        store.
+
+        Note: `-Djavax.net.ssl.trustStore*` are only read once, at JVM startup,
+        so a restart of the opensearch service is required for this to take
+        effect.
+        """
+        for pattern, value in (
+            (r"-Djavax\.net\.ssl\.trustStoreType=\S*", "-Djavax.net.ssl.trustStoreType=PKCS12"),
+            (r"-Djavax\.net\.ssl\.trustStore=\S*", f"-Djavax.net.ssl.trustStore={store_path}"),
+            (
+                r"-Djavax\.net\.ssl\.trustStorePassword=\S*",
+                f"-Djavax.net.ssl.trustStorePassword={store_pwd}",
+            ),
+        ):
+            self._opensearch.config.replace(
+                self.JVM_OPTIONS,
+                pattern,
+                value,
+                regex=True,
+                add_line_if_missing=True,
+            )
+
+    def unset_s3_truststore(self) -> None:
+        """Remove the custom object-storage CA trust store wiring from jvm.options."""
+        for pattern in (
+            r"-Djavax\.net\.ssl\.trustStoreType=\S*\n?",
+            r"-Djavax\.net\.ssl\.trustStore=\S*\n?",
+            r"-Djavax\.net\.ssl\.trustStorePassword=\S*\n?",
+        ):
+            self._opensearch.config.replace(self.JVM_OPTIONS, pattern, "", regex=True)
+
     def set_admin_tls_conf(self, secrets: Dict[str, any]):
         """Configures the admin certificate."""
         self._opensearch.config.put(
