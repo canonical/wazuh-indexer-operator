@@ -1498,6 +1498,15 @@ level: low"""
 
 @pytest.mark.parametrize("deploy_type", SMALL_DEPLOYMENTS)
 @pytest.mark.abort_on_fail
+@pytest.mark.skip(
+    reason=(
+        "Wazuh: the custom-codecs plugin (which provides the zstd/zstd_no_dict index "
+        "codecs) is not part of the bundled wazuh-indexer snap plugin set, so the "
+        "'codec': 'zstd' index setting is a no-op and never appears in the settings "
+        "response, causing a KeyError. Same category of gap as the other "
+        "Wazuh-unsupported-plugin tests disabled above."
+    )
+)
 async def test_custom_codecs_plugin(ops_test: OpsTest, deploy_type: str) -> None:
     """Test that the custom codecs plugin is enabled and functional."""
     leader_unit_ip = await get_leader_unit_ip(ops_test)
