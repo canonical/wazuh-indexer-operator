@@ -123,7 +123,7 @@ jobs:
       # find the image already cached/aliased instead of racing each other to download it
       # (which fails with "Alias already exists: juju/ubuntu@22.04/amd64/vm").
       - name: Pre-cache lxc image for jammy VMs
-        timeout-minutes: 10
+        timeout-minutes: 15
         run: |
           sudo lxc image copy ubuntu:22.04 local: --vm --alias "juju/ubuntu@22.04/amd64/vm"
       - name: Run spread job
