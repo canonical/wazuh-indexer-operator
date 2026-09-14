@@ -46,6 +46,7 @@ from charms.opensearch.v0.helper_security import (
     list_cas,
     normalize_certificate_chain_unordered,
     remove_s3_ca,
+    seed_default_trust_anchors,
     store_s3_ca,
     verify_azure_credentials,
     verify_gcs_credentials,
@@ -1669,6 +1670,11 @@ class OpenSearchSnapshotsManager:
             store_path=store_path,
         )
 
+        # Un-wire the trust store from the JVM: without a custom CA, the JVM
+        # should go back to trusting only the JDK's own default trust anchors.
+        self.charm.opensearch_config.unset_s3_truststore()
+        self._request_restart_if_needed()
+
     def store_s3_ca(self, s3_tls_ca_chain: str | None) -> None:
         """Store or remove an S3 TLS CA chain on the cacerts trust store.
 
@@ -1692,6 +1698,22 @@ class OpenSearchSnapshotsManager:
             store_path=store_path,
         )
 
+        if not s3_tls_ca_chain:
+            # No CA to (re-)store: fully un-wire the JVM trust store.
+            self.charm.opensearch_config.unset_s3_truststore()
+            self._request_restart_if_needed()
+            return
+
+        # Seed the JDK's own default trust anchors into the store before adding
+        # the custom CA: `-Djavax.net.ssl.trustStore` fully replaces (rather than
+        # extends) the JVM's default trust store, so without this, publicly
+        # trusted endpoints (e.g. real AWS S3) would stop being trusted.
+        seed_default_trust_anchors(
+            store_path=store_path,
+            store_pwd=STORE_PASSWORD,
+            jdk_home=self.opensearch.paths.jdk,
+        )
+
         # Import fresh CA
         store_s3_ca(
             store_pwd=STORE_PASSWORD,
@@ -1700,6 +1722,23 @@ class OpenSearchSnapshotsManager:
             ca=s3_tls_ca_chain,
             keep_previous=False,
         )
+
+        # Wire the trust store into the JVM so the S3 client (and the rest of
+        # the JVM) actually trusts it. `-Djavax.net.ssl.trustStore*` are
+        # JVM-startup-only properties, so a restart is required below.
+        self.charm.opensearch_config.set_s3_truststore(store_path, STORE_PASSWORD)
+        self._request_restart_if_needed()
+
+    def _request_restart_if_needed(self) -> None:
+        """Request an opensearch restart if the service is already running.
+
+        Needed after any change to the JVM trust store wiring above, since
+        `-Djavax.net.ssl.trustStore*` system properties are only read once, at
+        JVM startup.
+        """
+        if self.opensearch.is_service_started():
+            logger.info("Restarting opensearch to apply S3 trust store changes.")
+            self.charm._restart_opensearch_event.emit()
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(3), reraise=True)
     def cleanup_keystore(self, object_storage_type, keystore_entries) -> None:

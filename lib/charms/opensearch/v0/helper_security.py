@@ -234,6 +234,51 @@ def _store_ca_chain(  # noqa: C901
     return True
 
 
+def seed_default_trust_anchors(store_path: str, store_pwd: str, jdk_home: str) -> bool:
+    """Seed a (new) PKCS12 trust store with the JDK's own default CA trust anchors.
+
+    This must be done before any custom CA is added, and before the resulting
+    file is wired as the JVM's sole `-Djavax.net.ssl.trustStore`: that system
+    property replaces (rather than extends) the JVM's default trust store, so
+    without this seeding step, custom/self-signed object-storage CAs would end
+    up trusted while all publicly-CA-signed endpoints (e.g. real AWS S3) would
+    no longer be trusted.
+
+    Args:
+        store_path: Path of the PKCS12 trust store to seed.
+        store_pwd: Password to protect the resulting trust store with.
+        jdk_home: Path to the JDK bundled with the opensearch distro.
+
+    Returns:
+        bool: True if the store is seeded (or was already populated), False on failure.
+    """
+    if os.path.exists(store_path):
+        # Already exists: don't clobber whatever is already stored in it.
+        return True
+
+    default_cacerts = f"{jdk_home}/lib/security/cacerts"
+    if not os.path.exists(default_cacerts):
+        logger.error("Default JDK cacerts not found at %s.", default_cacerts)
+        return False
+
+    try:
+        run_cmd(
+            f"{KEYTOOL} -importkeystore -noprompt "
+            f"-srckeystore {default_cacerts} -srcstoretype JKS "
+            f"-destkeystore {store_path} -deststoretype PKCS12",
+            f"-srcstorepass changeit -deststorepass {store_pwd}",
+        )
+    except OpenSearchCmdError as e:
+        logger.error(
+            "Failed to seed default trust anchors into %s: %s",
+            store_path,
+            (e.out or "") + (e.err or ""),
+        )
+        return False
+
+    return True
+
+
 def store_s3_ca(
     alias: str, store_pwd: str, store_path: str, ca: str, keep_previous: bool = True
 ) -> bool:
