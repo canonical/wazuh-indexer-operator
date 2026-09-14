@@ -1101,6 +1101,7 @@ async def test_alerting_plugin(ops_test: OpsTest, deploy_type: str) -> None:
 
 @pytest.mark.parametrize("deploy_type", SMALL_DEPLOYMENTS)
 @pytest.mark.abort_on_fail
+@pytest.mark.skip("Wazuh: The query-insights plugin is not installed")
 async def test_query_insights_plugin(ops_test: OpsTest, deploy_type: str) -> None:
     """Test that the query insights plugin is enabled and functional."""
     leader_unit_ip = await get_leader_unit_ip(ops_test)
@@ -1225,6 +1226,7 @@ async def test_observability_plugin(ops_test: OpsTest, deploy_type: str) -> None
 
 @pytest.mark.parametrize("deploy_type", SMALL_DEPLOYMENTS)
 @pytest.mark.abort_on_fail
+@pytest.mark.skip("Wazuh: The flow-framework plugin is not installed")
 async def test_flow_framework_plugin(ops_test: OpsTest, deploy_type: str) -> None:
     """Test that the flow framework plugin is enabled and functional."""
     leader_unit_ip = await get_leader_unit_ip(ops_test)
@@ -1291,6 +1293,16 @@ async def test_flow_framework_plugin(ops_test: OpsTest, deploy_type: str) -> Non
 
 @pytest.mark.parametrize("deploy_type", SMALL_DEPLOYMENTS)
 @pytest.mark.abort_on_fail
+@pytest.mark.skip(
+    reason=(
+        "Wazuh: this test relies on the ingest pipeline/model set up by "
+        "test_flow_framework_plugin (registers a text-embedding model and creates an "
+        "ingest pipeline that this test then reads via INGEST_PIPELINE_ID), which is "
+        "now skipped because the flow-framework plugin is not installed. Re-enable "
+        "(and make self-contained, e.g. register/deploy its own model) if neural "
+        "search becomes relevant to Wazuh."
+    )
+)
 async def test_neural_search_plugin(ops_test: OpsTest, deploy_type: str) -> None:
     """Test that the neural search plugin is enabled and functional."""
     leader_unit_ip = await get_leader_unit_ip(ops_test)
@@ -1335,6 +1347,7 @@ async def test_neural_search_plugin(ops_test: OpsTest, deploy_type: str) -> None
 
 @pytest.mark.parametrize("deploy_type", SMALL_DEPLOYMENTS)
 @pytest.mark.abort_on_fail
+@pytest.mark.skip("Wazuh: The learning-to-rank plugin is not installed")
 async def test_ltr_plugin(ops_test: OpsTest, deploy_type: str) -> None:
     """Test that the learning-to-rank plugin is enabled and functional."""
     leader_unit_ip = await get_leader_unit_ip(ops_test)
