@@ -7,6 +7,7 @@ import logging
 
 import pytest
 from charms.opensearch.v0.constants_charm import PClusterNoDataNode
+from charms.opensearch.v0.opensearch_profile import MEMORY_REQUIREMENT_TOLERANCE_RATIO
 from pytest_operator.plugin import OpsTest
 from requests import request
 
@@ -76,10 +77,17 @@ async def check_heap_size(ops_test: OpsTest, heap_size_in_gb: int, app_name: str
         assert "jvm" in node_info, f"No JVM information for node {node_id}"
         jvm_mem = node_info["jvm"]["mem"]
         heap_max_in_bytes = jvm_mem["heap_max_in_bytes"]
-        # Check that the heap size is set to 4GB (in bytes)
+        # Heap size is set to 50% of the machine's reported MemTotal. Hypervisors/container
+        # runtimes (e.g. LXD) commonly report a MemTotal a few percent below the nominal
+        # memory requested via constraints (e.g. `mem=8G`), so allow the same tolerance
+        # here as ProfilesManager.check_memory_requirements uses for memory requirements.
+        expected_heap_in_bytes = heap_size_in_gb * 1024 * 1024 * 1024
+        minimum_accepted_heap_in_bytes = expected_heap_in_bytes * (
+            1 - MEMORY_REQUIREMENT_TOLERANCE_RATIO
+        )
         assert (
-            heap_max_in_bytes == heap_size_in_gb * 1024 * 1024 * 1024
-        ), f"Heap size is not {heap_size_in_gb}GB: {heap_max_in_bytes}"
+            minimum_accepted_heap_in_bytes <= heap_max_in_bytes <= expected_heap_in_bytes
+        ), f"Heap size is not {heap_size_in_gb}GB (within tolerance): {heap_max_in_bytes}"
 
 
 @pytest.mark.abort_on_fail
