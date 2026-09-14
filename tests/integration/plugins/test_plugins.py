@@ -840,6 +840,25 @@ async def test_ism_and_job_scheduler_plugins(ops_test: OpsTest, deploy_type: str
     leader_unit_ip = await get_leader_unit_ip(ops_test)
     base_url = f"https://{leader_unit_ip}:9200"
 
+    # Speed up ISM's own job schedule so the rollover check runs well within this
+    # test's poll window: by default, `job_interval` is 5 minutes and `jitter`
+    # adds a further random 0-60% delay on top, both of which can comfortably
+    # exceed the wait/poll budget below and make this test flaky. This used to
+    # be set (as a side effect) by test_reports_scheduler running earlier in
+    # this same file/cluster, but that test is now skipped, so set it here
+    # explicitly to not depend on now-skipped test ordering.
+    await http_request(
+        ops_test,
+        "PUT",
+        f"{base_url}/_cluster/settings",
+        {
+            "persistent": {
+                "plugins.index_state_management.job_interval": 1,
+                "plugins.index_state_management.jitter": 0,
+            }
+        },
+    )
+
     # create index with alias
     index_alias = "ism-test"
     initial_index = f"{index_alias}-000001"
