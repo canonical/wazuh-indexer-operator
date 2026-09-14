@@ -162,19 +162,20 @@ async def test_insufficient_memory(ops_test: OpsTest, charm: str, series: str) -
     # we do not wait for idle in this wait because the 3 units will keep trying
     # to acquire the lock but it will always be given to leader who cannot start
     # because it is blocked and deferring
+    # NOTE: we only assert on the stable "Insufficient memory:" prefix, not on the
+    # exact measured memory value (e.g. "3145728.0 < 8388608"). Hypervisors/container
+    # runtimes (e.g. LXD) commonly report MemTotal slightly below the nominal memory
+    # requested via constraints (e.g. mem=3G), so hardcoding the measured value makes
+    # this test flaky.
     await wait_until(
         ops_test,
         apps=[APP_NAME],
-        apps_full_statuses={
-            APP_NAME: {
-                "blocked": ["Missing requirements: Insufficient memory: 3145728.0 < 8388608"]
-            }
-        },
+        apps_full_statuses={APP_NAME: {"blocked": ["Missing requirements: Insufficient memory:"]}},
         units_full_statuses={
             APP_NAME: {
                 "units": {
                     "blocked": [
-                        "Missing requirements: Insufficient memory: 3145728.0 < 8388608",
+                        "Missing requirements: Insufficient memory:",
                     ],
                 }
             }
