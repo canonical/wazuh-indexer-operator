@@ -8,6 +8,19 @@ concurrency:
 
 on:
   pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.gitignore'
+  # Also trigger on push to sync/* branches: merge commits created while syncing with the
+  # upstream fork can conflict in ways that don't trigger CI on a pull_request event alone.
+  push:
+    branches:
+      - 'sync/**'
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.gitignore'
   schedule:
     - cron: '53 0 * * *' # Daily at 00:53 UTC
   # Triggered on push to branch "main" by .github/workflows/release.yaml
@@ -66,6 +79,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: (Github hosted) Mount /mnt to have more storage 
+        run: |
+          sudo mkdir -p /mnt/lxd/storage-pools
+          sudo mkdir -p /var/snap/lxd/common/lxd/storage-pools
+          sudo mount --bind /mnt/lxd/storage-pools /var/snap/lxd/common/lxd/storage-pools
+
       - name: (GitHub hosted) Free up disk space
         run: |
           printf '\nDisk usage before cleanup\n'
@@ -74,9 +93,6 @@ jobs:
           rm -r /opt/hostedtoolcache/
           printf '\nDisk usage after cleanup\n'
           df --human-readable
-
-      - name: (self hosted) Disk usage
-        run: df --human-readable
 
       - name: Install terraform snap
         run: |

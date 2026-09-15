@@ -63,9 +63,9 @@ resource "juju_application" "self-signed-certificates" {
 
   config = var.self-signed-certificates.config
 
-  units       = 1
+  units       = (var.self-signed-certificates.machines == null || length(var.self-signed-certificates.machines) == 0) ? var.self-signed-certificates.units : null
   constraints = var.self-signed-certificates.constraints
-  placement   = length(var.self-signed-certificates.machines) == 1 ? var.self-signed-certificates.machines[0] : null
+  machines    = (var.self-signed-certificates.machines == null || length(var.self-signed-certificates.machines) == 0) ? null : var.self-signed-certificates.machines
 }
 
 

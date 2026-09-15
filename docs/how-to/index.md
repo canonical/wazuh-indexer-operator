@@ -1,0 +1,66 @@
+---
+myst:
+  html_meta:
+    description: "Step-by-step guides for deploying, managing, and maintaining Charmed OpenSearch including TLS, backups, monitoring, and scaling."
+---
+
+(how-to-index)=
+# How-to guides
+
+The following guides cover key processes and common tasks for managing and using Charmed OpenSearch on machines.
+
+## Deployment and setup
+
+* [Deploy on LXD](how-to-deploy-lxd)
+* [Launch a large deployment](how-to-deploy-large)
+
+## TLS encryption
+
+* [Enable TLS encryption](how-to-enable-tls-encryption)
+* [Rotate TLS/CA certificates](how-to-rotate-tls-ca-certificates)
+
+## Usage and maintenance
+
+* [Scale horizontally](how-to-scale-horizontally)
+* [Integrate with an application](how-to-integrate-with-an-application)
+* [Perform load testing](how-to-perform-load-testing)
+* [Optimize Cluster Performance with Profiles](how-to-optimize-cluster-performance)
+* [Manage persistent storage](how-to-persistent-storage)
+* [Access using OAuth](how-to-access-using-oauth)
+
+## Backup and restore
+
+* [Configure Azure Storage](how-to-back-up-configure-azure-storage)
+* [Configure S3](how-to-back-up-configure-s3)
+* [Create a backup](how-to-create-a-backup)
+* [Restore a local backup](how-to-restore-a-local-backup)
+* [Migrate a cluster](how-to-migrate-a-cluster)
+
+## Minor upgrades
+
+* [Perform a minor upgrade](how-to-minor-upgrade)
+* [Perform a minor rollback](how-to-minor-rollback)
+* [Recovering from a rollback](how-to-recover-rollback)
+
+## Monitoring (COS)
+
+* [Monitoring (COS)](how-to-monitoring)
+
+```{toctree}
+:titlesonly:
+:hidden:
+
+Deploy <deploy/index>
+TLS encryption <tls-encryption>
+Integrate with an application <integrate-with-an-application>
+Scale horizontally <scale-horizontally>
+Back up and restore <back-up-and-restore/index>
+Manage persistent storage <persistent-storage>
+Upgrade <upgrade>
+Enable monitoring <monitoring>
+Enable email notifications <add-smtp-credentials>
+Access using OAuth <access-using-oauth>
+Enable JWT authentication <enable-jwt-authentication>
+Optimize cluster performance <optimize-cluster-performance>
+Perform load testing <perform-load-testing>
+```

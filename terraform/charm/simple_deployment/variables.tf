@@ -10,13 +10,13 @@ variable "app_name" {
 variable "channel" {
   description = "Charm channel"
   type        = string
-  default     = "2/stable"
+  default     = "2/edge"
 }
 
 variable "base" {
   description = "Charm base (old name: series)"
   type        = string
-  default     = "ubuntu@22.04"
+  default     = "ubuntu@24.04"
 }
 
 variable "config" {
@@ -91,6 +91,7 @@ variable "self-signed-certificates" {
     channel     = optional(string, "latest/stable")
     revision    = optional(string, null)
     base        = optional(string, "ubuntu@22.04")
+    units       = optional(number, 1)
     constraints = optional(string, "arch=amd64")
     machines    = optional(list(string), [])
     config      = optional(map(string), { "ca-common-name" : "CA" })

@@ -2,7 +2,9 @@ name: Documentation
 
 on:
   push:
-    branches: [ "2/edge" ]
+    # sync/**: merge commits created while syncing with the upstream fork can conflict in
+    # ways that don't trigger CI on a pull_request event alone.
+    branches: [ "2/edge", "sync/**" ]
   pull_request:
 
 jobs:

@@ -28,7 +28,7 @@ module "opensearch" {
 
 # OpenSearch dashboards
 module "opensearch-dashboards" {
-  source     = "git::https://github.com/canonical/opensearch-dashboards-operator//terraform?ref=2/edge"
+  source     = "git::https://github.com/canonical/opensearch-dashboards-operator//terraform?ref=rev60"
   model_uuid = var.opensearch.model_uuid
 
   channel  = var.opensearch-dashboards.channel
@@ -56,7 +56,7 @@ resource "juju_application" "data-integrator" {
   config     = var.data-integrator.config
 
   constraints = var.data-integrator.constraints
-  placement   = length(var.data-integrator.machines) == 1 ? var.data-integrator.machines[0] : null
+  machines    = (var.data-integrator.machines == null || length(var.data-integrator.machines) == 0) ? null : var.data-integrator.machines
 }
 
 resource "juju_application" "grafana-agent" {
@@ -81,7 +81,7 @@ resource "juju_application" "backups-integrator" {
   config     = var.backups-integrator.config
 
   constraints = var.backups-integrator.constraints
-  placement   = length(var.backups-integrator.machines) == 1 ? var.backups-integrator.machines[0] : null
+  machines    = (var.backups-integrator.machines == null || length(var.backups-integrator.machines) == 0) ? null : var.backups-integrator.machines
 }
 
 
