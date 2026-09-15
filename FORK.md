@@ -33,6 +33,38 @@ linear and makes it easy to see which commits are fork-only. Switch to merging o
 grows large enough that repeated rebasing becomes error-prone or history rewriting is undesirable
 (e.g. after the fork has been branched/released independently).
 
+### `2/edge` requires linear history — squash merge commits before opening a PR
+
+`2/edge` has branch protection with `required_linear_history` enabled, and the repository only
+allows the "Rebase and merge" button for pull requests (`allow_merge_commit` and
+`allow_squash_merge` are both disabled). **Neither GitHub's rebase-and-merge nor a direct push can
+land a branch that contains a merge commit** — GitHub rejects it outright (`GH006: Protected
+branch update failed ... This branch must not contain merge commits.`), and rebase-and-merge
+cannot linearize a commit with two parents in the first place.
+
+This means: if you used `git merge upstream/main` (or merged a `sync/...` branch) while catching up
+with upstream, you **must squash that merge commit into a single, regular (one-parent) commit**
+before the branch can be merged into `2/edge` — do this once, right before opening/updating the PR,
+rather than trying to rebase every individual upstream commit that was merged in (which re-triggers
+all the original conflict resolution). The squash preserves 100% of the file content (it only
+changes the shape of the commit graph):
+
+```shell
+# Starting from the tip of 2/edge, replay each merge commit as a single squashed commit,
+# then re-apply (cherry-pick) every commit that came after it unchanged.
+git checkout -b <linear-branch> 2/edge
+git merge --squash <merge-commit-sha>
+git commit   # tree is byte-identical to <merge-commit-sha>; only its parent changes to 2/edge's tip
+git cherry-pick <merge-commit-sha>..<original-branch>   # replays the remaining, already-linear commits
+```
+
+Verify the result before pushing:
+
+```shell
+git diff <original-branch> <linear-branch>          # must be empty (no content changed)
+git log --merges 2/edge..<linear-branch>            # must be empty (no merge commits remain)
+```
+
 Conflicts are expected in files that are heavily customized for Wazuh Indexer, notably:
 
 - `charmcraft.yaml`, `metadata.yaml` / `charm's identity & packaging`
