@@ -185,7 +185,13 @@ prepare-each: |
 
   # Unable to set constraint on all models because of Juju bug:
   # https://bugs.launchpad.net/juju/+bug/2065050
-  juju set-model-constraints arch="$(dpkg --print-architecture)" virt-type=virtual-machine mem=4G cores=2 root-disk=10G
+  # root-disk bumped from 10G to 20G: cumulative test data across the growing
+  # tests/integration/plugins/test_plugins.py suite (anomaly detection, security
+  # analytics, ISM, alerting, notifications, geospatial, etc.) was filling the disk
+  # enough to trip ml-commons' disk circuit breaker in later tests (e.g.
+  # test_skills_plugin), even though free space never neared Juju's own allocation
+  # watermarks. Upstream opensearch-operator does not constrain root-disk at all.
+  juju set-model-constraints arch="$(dpkg --print-architecture)" virt-type=virtual-machine mem=4G cores=2 root-disk=20G
 
 
 # Only restore on lxd backend. No need to restore on CI
