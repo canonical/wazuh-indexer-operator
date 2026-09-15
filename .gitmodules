@@ -1,3 +1,0 @@
-[submodule "docs/dashboards"]
-	path = docs/dashboards
-	url = https://github.com/canonical/opensearch-dashboards-operator.git

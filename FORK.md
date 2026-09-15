@@ -119,4 +119,32 @@ Notes:
   `github.com/canonical/spread/cmd/spread@latest` in `.github/workflows/integration_test.yaml`
   (upstream `spread` module path changed from `snapcore` to `canonical`).
 - Charm/snap naming (`opensearch` → `wazuh-indexer`) across workflows, `charmcraft.yaml`, and
-  Python source.
+  Python source. In particular, watch for newly introduced `/var/snap/opensearch/...` paths,
+  `opensearch.<alias>` snap commands, and the executable bit on `src/charm.py` — an upstream
+  sync silently reset all three at least once.
+- Upstream documentation under `docs/`. This fork does not carry the upstream OpenSearch
+  tutorials/how-tos (they instruct users to `juju deploy opensearch`); `docs/` is kept to
+  `overview.md` and `changelog-fork.md` only. Drop any upstream `docs/` tree brought in by a sync.
+
+## Known fork limitations
+
+### Refresh rollback is not supported
+
+`src/upgrade.py` defines `COMPATIBILITY_MATRIX`, which upstream keys by OpenSearch version
+numbers (`2.18.0`, `2.19.x`, …). This fork's `workload_version` follows the Wazuh scheme
+(currently `4.11.0`), so no entry ever matches and `Upgrade.can_rollback` always evaluates to
+`False`.
+
+Practical consequence: a `juju refresh` back to an older charm revision is detected as a rollback
+(`Upgrade.is_rollback`) but reported as unsupported, and the unit settles in
+
+```
+blocked: Rollback unsupported. Refresh to a newer revision or consult the recovery documentation
+```
+
+Recovery is manual — either refresh forward to a newer revision, or run
+`juju run <unit> force-refresh-start check-compatibility=false` to override the on-disk version
+check and attempt the startup procedure anyway (potential for data loss and downtime).
+
+Populating `COMPATIBILITY_MATRIX` with real Wazuh Indexer version pairs is the proper fix, and
+should be done once the supported Wazuh upgrade paths are confirmed.

@@ -6,6 +6,56 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Each revision is versioned by the date of the revision.
 
+## 2026-09-15
+
+Fork-consistency pass over the upstream sync merged as
+`Merge upstream/2/edge up to b55ac3966f (safe commits before single-kernel migration)`.
+
+### Fixed
+
+- Restored the executable bit on `src/charm.py` (`100755`), which the upstream sync reset to
+  `100644`. Juju's `dispatch` execs `./src/charm.py`, so without it every hook fails.
+- Corrected `GCS_SERVICE_ACCOUNT_JSON` in `lib/charms/opensearch/v0/constants_charm.py`, which
+  pointed at `/var/snap/opensearch/...` instead of `/var/snap/wazuh-indexer/...`.
+- Corrected the snap command in `tests/integration/upgrades/helpers.py`, which invoked
+  `snap run --shell opensearch.daemon` instead of `wazuh-indexer.daemon`.
+- `OpenSearchDistribution.override_version()` now invokes `opensearch-node` through
+  `snap run --shell wazuh-indexer.daemon` instead of executing the binary path under `/snap`
+  directly, so it inherits the snap's `JAVA_HOME`/`OPENSEARCH_*` environment like every other
+  binary invocation in the charm.
+
+### Changed
+
+- Restored `production` as the default value of the `profile` config option; the upstream sync
+  had changed it to `testing`. Only `production` and `testing` are valid values
+  (`PerformanceType` in `lib/charms/opensearch/v0/models.py`).
+- Marked the `gcs-credentials`, `jwt-configuration` and `smtp` relation endpoints `optional: true`
+  in `metadata.yaml`. These integrations (GCS snapshot repositories, JWT authentication, SMTP
+  notifications) arrived with the upstream sync and are **not yet validated** against the
+  `wazuh-indexer` snap — in particular it is unconfirmed that the required plugins are bundled.
+  The endpoints stay declared because the requirer libraries are constructed unconditionally in
+  the shared `lib/charms/opensearch/v0/` code, but they are unsupported until validated.
+
+### Removed
+
+- The upstream OpenSearch documentation tree brought in by the sync (`docs/how-to/`,
+  `docs/tutorial/`, `docs/reference/`, `docs/explanation/`). It documents the `opensearch` charm
+  (`juju deploy opensearch`) and does not apply to this fork. `docs/` is back to `overview.md`
+  and `changelog-fork.md`.
+- The `docs/dashboards` git submodule (pointing at `canonical/opensearch-dashboards-operator`)
+  and `.gitmodules`; no workflow checked out submodules, and the submodule is orphaned by the
+  documentation removal above.
+
+### Documented
+
+- `FORK.md` now records that refresh rollback is unsupported on this fork:
+  `COMPATIBILITY_MATRIX` in `src/upgrade.py` is keyed by OpenSearch versions while
+  `workload_version` uses the Wazuh scheme, so `Upgrade.can_rollback` is always `False` and a
+  downward `juju refresh` ends in a Blocked status requiring manual recovery.
+- `FORK.md` "Known recurring conflict points" now calls out `/var/snap/opensearch/...` paths,
+  `opensearch.<alias>` snap commands, the `src/charm.py` executable bit, and the upstream `docs/`
+  tree as things to re-check after every sync.
+
 ## 2026-09-07
 
 ### Fixed

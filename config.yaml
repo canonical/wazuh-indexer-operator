@@ -49,7 +49,7 @@ options:
 
   profile:
     type: string
-    default: "testing"
+    default: "production"
     description: |
       Profile representing the scope of deployment, and used to tune resource allocation.
       Allowed values are: "production" or "testing".

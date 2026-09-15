@@ -124,7 +124,7 @@ def get_version_on_unit(unit: str, model: str):
         "snap",
         "run",
         "--shell",
-        "opensearch.daemon",
+        "wazuh-indexer.daemon",
         "-c",
         "$OPENSEARCH_BIN/opensearch --version",
     ]

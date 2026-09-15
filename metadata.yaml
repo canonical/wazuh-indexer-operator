@@ -59,6 +59,9 @@ requires:
   gcs-credentials:
     interface: gcs
     limit: 1
+    # Fork note: GCS snapshot repositories are not yet validated against the
+    # wazuh-indexer snap. Declared so the charm can be constructed, but unsupported.
+    optional: true
   oauth:
     interface: oauth
     limit: 1
@@ -66,9 +69,13 @@ requires:
   jwt-configuration:
     interface: jwt
     limit: 1
+    # Fork note: JWT authentication is not yet validated against the wazuh-indexer snap.
     optional: true
   smtp:
     interface: smtp
+    # Fork note: SMTP notifications require the notifications plugin, which is not yet
+    # validated as bundled in the wazuh-indexer snap. Declared but unsupported.
+    optional: true
 
 storage:
   opensearch-data:

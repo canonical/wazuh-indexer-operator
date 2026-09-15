@@ -33,6 +33,10 @@ if typing.TYPE_CHECKING:
 PEER_RELATION_ENDPOINT_NAME = "upgrade-version-a"
 PRECHECK_ACTION_NAME = "pre-upgrade-check"
 RESUME_ACTION_NAME = "resume-upgrade"
+# Inherited from upstream opensearch-operator and keyed by OpenSearch version numbers.
+# This fork's `workload_version` follows the Wazuh scheme (e.g. 4.11.0), so no entry ever
+# matches and `Upgrade.can_rollback` always returns False: a `juju refresh` back to an older
+# revision surfaces as a Blocked status and has to be recovered manually. See FORK.md.
 COMPATIBILITY_MATRIX = {
     "2.19.4": {"2.18.0", "2.19.0", "2.19.1", "2.19.2", "2.19.3"},
 }

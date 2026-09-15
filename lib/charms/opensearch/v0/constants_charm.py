@@ -160,5 +160,8 @@ JWT_CONFIG_RELATION = "jwt-configuration"
 SMTP_SECRET_LABEL = "plugin-notifications"
 
 # GCS Service account JSON
+# Fork-specific: this charm ships the `wazuh-indexer` snap, not `opensearch`.
 
-GCS_SERVICE_ACCOUNT_JSON = "/var/snap/opensearch/common/home/snap_daemon/gcs_service_account.json"
+GCS_SERVICE_ACCOUNT_JSON = (
+    "/var/snap/wazuh-indexer/common/home/snap_daemon/gcs_service_account.json"
+)

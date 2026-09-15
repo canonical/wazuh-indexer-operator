@@ -618,4 +618,11 @@ class OpenSearchDistribution(ABC):
 
     def override_version(self) -> None:
         """Override the version on disk to allow rollback to proceed."""
-        self._run_cmd(f"{self.paths.bin}/opensearch-node", "override-version", "y")
+        # Fork note: the binary lives inside the confined `wazuh-indexer` snap, so it must be
+        # invoked through the snap's shell to inherit JAVA_HOME/OPENSEARCH_* — a bare exec of
+        # the path under /snap would run without the snap environment.
+        self._run_cmd(
+            f"snap run --shell wazuh-indexer.daemon -- {self.paths.bin}/opensearch-node",
+            "override-version",
+            stdin="y",
+        )
