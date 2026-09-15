@@ -174,6 +174,50 @@ async def get_shards_by_index(ops_test: OpsTest, unit_ip: str, index_name: str) 
     return result
 
 
+async def wait_until_unit_hosts_shard(
+    ops_test: OpsTest,
+    unit_ip: str,
+    index_name: str,
+    unit_id: int,
+    primary: bool = False,
+    retries: int = 20,
+) -> bool:
+    """Wait until a unit hosts a (primary or replica) shard copy of an index.
+
+    After a unit rejoins the cluster (e.g. following a network cut), OpenSearch
+    asynchronously recovers/relocates shard copies onto it. This is not reflected by
+    Juju's own idle/active status, so callers should poll for the expected shard
+    placement instead of asserting on a single snapshot from `get_shards_by_index`.
+
+    Args:
+        ops_test: The ops test framework instance.
+        unit_ip: The ip of the OpenSearch unit to query.
+        index_name: the name of the index.
+        unit_id: the unit expected to host the shard.
+        primary: whether to look for a primary (True) or replica (False) shard.
+        retries: number of attempts before giving up.
+
+    Returns:
+        True if the unit hosts the expected shard copy before retries are exhausted,
+        False otherwise.
+    """
+    try:
+        for attempt in Retrying(
+            stop=stop_after_attempt(retries), wait=wait_fixed(wait=15) + wait_random(0, 5)
+        ):
+            with attempt:
+                shards = await get_shards_by_index(ops_test, unit_ip, index_name)
+                units = [shard.unit_id for shard in shards if shard.is_prim == primary]
+                if unit_id not in units:
+                    raise AssertionError(
+                        f"Unit {unit_id} does not (yet) host a "
+                        f"{'primary' if primary else 'replica'} shard of '{index_name}'."
+                    )
+                return True
+    except RetryError:
+        return False
+
+
 @retry(
     wait=wait_fixed(wait=15) + wait_random(0, 5),
     stop=stop_after_attempt(25),
