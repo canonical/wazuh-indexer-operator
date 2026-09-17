@@ -177,9 +177,12 @@ class _StartOpenSearch(EventBase):
         }
 
     def restore(self, snapshot: Dict[str, Any]):
-        self.ignore_lock = snapshot["ignore_lock"]
-        self.after_upgrade = snapshot["after_upgrade"]
-        self.is_first_data_node = snapshot["is_first_data_node"]
+        self.ignore_lock = snapshot.get("ignore_lock", False)
+        self.after_upgrade = snapshot.get("after_upgrade", False)
+        # Deferred events snapshotted by a charm revision predating this field's introduction
+        # (e.g. after a rollback to an older revision followed by a re-upgrade) won't have this
+        # key; default to False rather than crashing on restore.
+        self.is_first_data_node = snapshot.get("is_first_data_node", False)
 
 
 class _RestartOpenSearch(EventBase):

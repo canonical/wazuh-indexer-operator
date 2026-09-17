@@ -56,6 +56,20 @@ Fork-consistency pass over the upstream sync merged as
   `opensearch.<alias>` snap commands, the `src/charm.py` executable bit, and the upstream `docs/`
   tree as things to re-check after every sync.
 
+## 2026-09-17
+
+### Fixed
+
+- `_StartOpenSearch.restore()` (`lib/charms/opensearch/v0/opensearch_base_charm.py`) now defaults
+  `ignore_lock`/`after_upgrade`/`is_first_data_node` via `snapshot.get(..., False)` instead of
+  strict `snapshot[...]` lookups. A unit that gets **rolled back** to a charm revision predating
+  the `is_first_data_node` field (added 2026-09-15 during the upstream sync), defers a
+  `_StartOpenSearch` event on that older revision, and is then **re-upgraded**, would crash with
+  `KeyError: 'is_first_data_node'` on every hook (`Uncaught exception ... obj.restore(data)`),
+  because the persisted event snapshot predates the field. This left affected units permanently
+  stuck (`waiting` / `Requesting lock on operation: start`) since the charm could never process
+  any further hooks.
+
 ## 2026-09-07
 
 ### Fixed
