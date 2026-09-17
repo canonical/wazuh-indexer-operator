@@ -5,7 +5,7 @@
 [![Charmhub](https://charmhub.io/wazuh-indexer/badge.svg)](https://charmhub.io/wazuh-indexer)
 [![Release](https://github.com/canonical/wazuh-indexer-operator/actions/workflows/release.yaml/badge.svg)](https://github.com/canonical/wazuh-indexer-operator/actions/workflows/release.yaml)
 [![Tests](https://github.com/canonical/wazuh-indexer-operator/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/canonical/wazuh-indexer-operator/actions/workflows/ci.yaml)
-[![Docs](https://github.com/canonical/wazuh-indexer-operator/actions/workflows/sync_docs.yaml/badge.svg)](https://github.com/canonical/wazuh-indexer-operator/actions/workflows/sync_docs.yaml)
+[![Docs](https://github.com/canonical/wazuh-indexer-operator/actions/workflows/docs.yaml/badge.svg)](https://github.com/canonical/wazuh-indexer-operator/actions/workflows/docs.yaml)
 
 ## Description
 
