@@ -12,17 +12,6 @@ on:
       - 'docs/**'
       - '**.md'
       - '.gitignore'
-  # Also trigger on push to sync/* branches: merge commits created while syncing with the
-  # upstream fork can conflict in ways that don't trigger CI on a pull_request event alone.
-  push:
-    branches:
-      - 'sync/**'
-    paths-ignore:
-      - 'docs/**'
-      - '**.md'
-      - '.gitignore'
-  schedule:
-    - cron: '53 0 * * *' # Daily at 00:53 UTC
   # Triggered on push to branch "main" by .github/workflows/release.yaml
   workflow_call:
     outputs:

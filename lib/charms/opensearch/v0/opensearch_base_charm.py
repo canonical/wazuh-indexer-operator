@@ -862,6 +862,7 @@ class OpenSearchBaseCharm(CharmBase, abc.ABC):
             and deployment_desc.typ == DeploymentType.MAIN_ORCHESTRATOR
         ):
             self.opensearch_provider.remove_lingering_relation_users_and_roles()
+            self.opensearch_provider.reconcile_relation_users()
 
         # If the unit reloads its certs but the other units are not ready yet
         # we need to wait for them all to be ready before deleting the old CA
