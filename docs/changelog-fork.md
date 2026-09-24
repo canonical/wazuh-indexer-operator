@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Each revision is versioned by the date of the revision.
 
+## 2026-09-24
+
+### Fixed
+
+- Relation users are no longer deleted while their relation is still established
+  ([#50](https://github.com/canonical/wazuh-indexer-operator/issues/50)).
+  `OpenSearchProvider._on_relation_departed()`
+  (`lib/charms/opensearch/v0/opensearch_relation_provider.py`) called
+  `remove_lingering_relation_users_and_roles(event.relation.id)` on **every**
+  `opensearch-client-relation-departed` hook. That hook fires once per *unit* leaving the
+  relation — on either side — not when the relation is removed, so scaling `wazuh-indexer` or a
+  client application destroyed the user, role and role mapping of a live relation, silently
+  breaking the client's credentials. Deletion now happens only on `relation-broken`, and
+  `remove_lingering_relation_users_and_roles()` refuses to delete the user of a relation that is
+  still present in the model even when an explicit relation id is passed.
+- Added `OpenSearchProvider.reconcile_relation_users()`, run on `update-status` by the main
+  orchestrator leader, which recreates the user of any established relation that has an index
+  requested but no tracked user, and re-publishes the credentials. Without it, deployments whose
+  users were already wiped could not recover: users are only created from `index-requested`,
+  which `data_platform_libs` re-emits only when the requirer's `index` field changes.
+
 ## 2026-09-15
 
 Fork-consistency pass over the upstream sync merged as

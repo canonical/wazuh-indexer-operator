@@ -408,7 +408,10 @@ class OpenSearchProvider(Object):
         if event.departing_unit == self.charm.unit:
             self.charm.peers_data.put(Scope.UNIT, self._depart_flag(event.relation), True)
 
-        self.remove_lingering_relation_users_and_roles(event.relation.id)
+        # NOTE: relation-departed fires for every single unit leaving the relation (either side),
+        # not only when the relation itself goes away. The relation user must therefore NOT be
+        # removed here: scaling either application down would otherwise destroy the credentials
+        # of a perfectly healthy relation. Removal is handled by relation-broken.
 
     def _on_relation_broken(self, event: RelationBrokenEvent) -> None:
         """Handle client relation-broken event."""
@@ -496,20 +499,26 @@ class OpenSearchProvider(Object):
 
         relation_users = self.charm.peers_data.get_object(Scope.APP, ClientUsersDict) or {}
 
-        if departed_relation_id and (
-            not relation_users or departed_relation_id not in relation_users
-        ):
-            logging.warning(
-                "User for relation %d wasn't registered in internal cham workflows.",
+        if departed_relation_id and str(departed_relation_id) not in relation_users:
+            logger.warning(
+                "User for relation %d wasn't registered in internal charm workflows.",
                 departed_relation_id,
             )
 
-        cleanup_rel_ids = []
-        if departed_relation_id:
-            cleanup_rel_ids = [str(departed_relation_id)]
+        # Relations that are still established. Note that during a relation-broken hook the
+        # broken relation is already excluded from the model, so it is cleaned up below.
+        live_rel_ids = {str(relation.id) for relation in self.opensearch_provides.relations}
 
-        rel_ids = [str(relation.id) for relation in self.opensearch_provides.relations]
-        cleanup_rel_ids += list(set(relation_users.keys()) - set(rel_ids))
+        cleanup_rel_ids = set(relation_users.keys()) - live_rel_ids
+
+        if departed_relation_id:
+            if str(departed_relation_id) in live_rel_ids:
+                # Safety net: never delete the user of a relation that is still established.
+                logger.warning(
+                    "Relation %d is still established, keeping its user.", departed_relation_id
+                )
+            else:
+                cleanup_rel_ids.add(str(departed_relation_id))
 
         for rel_id in cleanup_rel_ids:
             if username := relation_users.get(rel_id):
@@ -531,6 +540,49 @@ class OpenSearchProvider(Object):
                 del relation_users[rel_id]
 
         self.charm.peers_data.put_object(Scope.APP, ClientUsersDict, relation_users)
+
+    def reconcile_relation_users(self) -> None:
+        """Recreates the users of established relations whose user went missing.
+
+        A relation user is only ever created when the requirer emits `index-requested`, which the
+        data-interfaces library re-emits only when the requested index changes. So a relation whose
+        user disappeared while the relation itself stayed up would otherwise never recover.
+        """
+        if not self.opensearch.is_node_up() or not self.unit.is_leader():
+            return
+
+        relation_users = self.charm.peers_data.get_object(Scope.APP, ClientUsersDict) or {}
+
+        for relation in self.opensearch_provides.relations:
+            if str(relation.id) in relation_users:
+                continue
+
+            index = self.opensearch_provides.fetch_relation_field(relation.id, "index")
+            if not index:
+                # The requirer never requested an index, there is no user to recreate.
+                continue
+
+            extra_user_roles = (
+                self.opensearch_provides.fetch_relation_field(relation.id, "extra-user-roles")
+                or "default"
+            ).lower()
+            if KibanaserverRole in extra_user_roles:
+                # Dashboards relations share the charm-managed kibanaserver user, which is not
+                # tracked per relation.
+                continue
+
+            username = self._relation_username(relation)
+            hashed_pwd, pwd = generate_hashed_password()
+            try:
+                self.create_opensearch_users(
+                    username, hashed_pwd, index, extra_user_roles, relation_id=relation.id
+                )
+            except OpenSearchUserMgmtError as err:
+                logger.error("Failed to recreate missing user %s: %s", username, err)
+                continue
+
+            self.opensearch_provides.set_credentials(relation.id, username, pwd)
+            logger.info("Recreated missing user %s for relation %d", username, relation.id)
 
     def update_relations_roles_mapping(self) -> bool:
         """Updates all the relations roles mapping due to config change.
