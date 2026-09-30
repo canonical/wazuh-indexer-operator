@@ -132,7 +132,7 @@ Notes:
 
 `src/upgrade.py` defines `COMPATIBILITY_MATRIX`, which upstream keys by OpenSearch version
 numbers (`2.18.0`, `2.19.x`, …). This fork's `workload_version` follows the Wazuh scheme
-(currently `4.11.0`), so no entry ever matches and `Upgrade.can_rollback` always evaluates to
+(currently `4.14.7`), so no entry ever matches and `Upgrade.can_rollback` always evaluates to
 `False`.
 
 Practical consequence: a `juju refresh` back to an older charm revision is detected as a rollback

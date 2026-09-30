@@ -33,8 +33,8 @@ logger = logging.getLogger(__name__)
 
 
 OPENSEARCH_ORIGINAL_CHARM_NAME = "wazuh-indexer"
-OPENSEARCH_CHANNEL = "4.11/edge"
-OPENSEARCH_STABLE_CHANNEL = "4.11/stable"
+OPENSEARCH_CHANNEL = "4.14/edge"
+OPENSEARCH_STABLE_CHANNEL = "4.14/stable"
 
 
 charm = None

@@ -41,7 +41,7 @@ jobs:
       - ci-tests
     uses: canonical/data-platform-workflows/.github/workflows/release_charm.yaml@v29.0.0
     with:
-      channel: 4.11/edge
+      channel: 4.14/edge
       artifact-prefix: ${{ needs.ci-tests.outputs.artifact-prefix }}
     secrets:
       charmhub-token: ${{ secrets.CHARMHUB_TOKEN }}

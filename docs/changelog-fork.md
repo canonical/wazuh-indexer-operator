@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Each revision is versioned by the date of the revision.
 
+## 2026-09-30
+
+### Changed
+
+- Bumped the consumed `wazuh-indexer` snap and charm release channel from `4.11/*` to `4.14/edge` (`OPENSEARCH_SNAP_REVISION` 8 -> 20, `workload_version` 4.11.0 -> 4.14.7).
+
 ## 2026-09-15
 
 Fork-consistency pass over the upstream sync merged as
