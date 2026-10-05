@@ -1435,8 +1435,11 @@ level: low"""
     response = await http_request(
         ops_test, "POST", f"{endpoint}/rules?category=linux", payload=sigma_rule
     )
+    # DEBUG(4.14-channel-bump): log the raw response so CI output shows the actual
+    # OpenSearch/Security Analytics error when rule creation fails.
+    logger.info(f"Security analytics rule creation response: {response}")
     rule_id = response.get("_id")
-    assert rule_id, "Rule not created"
+    assert rule_id, f"Rule not created: {response}"
 
     log_index = "log-index"
     await create_index(
