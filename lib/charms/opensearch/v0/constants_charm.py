@@ -146,7 +146,7 @@ ClientUsersDict = "client_relation_users"
 # 4.14/edge/security-analytics-fix, to validate the opensearch-security-analytics
 # plugin fix (canonical/wazuh-indexer-snap#27) before it lands on 4.14/edge.
 # TODO: revert to 20 (or the next real 4.14/edge revision) once validated.
-OPENSEARCH_SNAP_REVISION = 23  # Keep in sync with `workload_version` file
+OPENSEARCH_SNAP_REVISION = 24  # Keep in sync with `workload_version` file
 
 # User-face Backup ID format
 OPENSEARCH_BACKUP_ID_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
