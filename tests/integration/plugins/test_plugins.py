@@ -1469,8 +1469,11 @@ level: low"""
     }
     # First-time detector creation bootstraps the plugin's internal config/mapping/
     # job-scheduler indices, which can take longer than the default 17s read timeout.
+    # DEBUG: bumped to 180s (from 60s) purely to get a conclusive pass/fail + duration
+    # measurement while investigating canonical/wazuh-indexer-operator#62.
+    # TODO: pick a final, justified value (not necessarily 180s) before merging.
     response = await http_request(
-        ops_test, "POST", f"{endpoint}/detectors", payload, read_timeout=60
+        ops_test, "POST", f"{endpoint}/detectors", payload, read_timeout=180
     )
     logger.info(f"\nDetectors response: {response}")
     detector_id = response.get("_id")

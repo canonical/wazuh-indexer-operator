@@ -7,6 +7,7 @@ import random
 import shlex
 import subprocess
 import tempfile
+import time
 from hashlib import md5
 from pathlib import Path
 from types import SimpleNamespace
@@ -331,6 +332,29 @@ async def get_reachable_units(ops_test: OpsTest, app: str = APP_NAME) -> Dict[in
     return result
 
 
+# DEBUG: instrumentation to diagnose the security-analytics detector-creation
+# ReadTimeout (canonical/wazuh-indexer-operator#62). TODO: remove before merging.
+async def _request_with_timing_debug(
+    session: requests.Session,
+    request_kwargs: Dict[str, any],
+    ops_test: OpsTest,
+    app: str,
+    endpoint: str,
+):
+    """Perform the HTTP request, logging elapsed time and dumping unit logs on timeout."""
+    start = time.monotonic()
+    method = request_kwargs["method"]
+    try:
+        resp = session.request(**request_kwargs)
+    except requests.exceptions.ReadTimeout:
+        elapsed = time.monotonic() - start
+        logger.info(f"DEBUG: ReadTimeout after {elapsed:.1f}s calling {method} {endpoint}")
+        await debug_failed_unit(ops_test, app, endpoint)
+        raise
+    logger.info(f"DEBUG: {method} {endpoint} took {time.monotonic() - start:.1f}s")
+    return resp
+
+
 async def http_request(
     ops_test: OpsTest,
     method: str,
@@ -399,7 +423,7 @@ async def http_request(
         session.auth = (user, user_password or admin_secrets["password"])
 
         request_kwargs["verify"] = chain.name if verify else False
-        resp = session.request(**request_kwargs)
+        resp = await _request_with_timing_debug(session, request_kwargs, ops_test, app, endpoint)
 
         if resp.status_code == 503:
             logger.debug("\n\n\n\n -- Error 503 -- \n")
@@ -429,13 +453,20 @@ async def debug_failed_unit(ops_test: OpsTest, app: str, endpoint: str) -> None:
         f"{root}/current/config/unicast_hosts.txt",
     ]
     for f in files_to_debug:
-        logger.debug(f"{f}:\n")
+        # DEBUG: bumped from logger.debug to logger.info so this shows up in captured
+        # pytest output without needing --log-cli-level=DEBUG
+        # (canonical/wazuh-indexer-operator#62).
+        # TODO: revert to logger.debug before merging.
+        logger.info(f"{f}:\n")
 
-        get_logs_cmd = f"run --unit {app}/{unit_id} -- sudo cat {f}"
+        # DEBUG: tail instead of cat to bound output size after dozens of prior tests
+        # have grown the opensearch log (canonical/wazuh-indexer-operator#62).
+        # TODO: revert to `cat` before merging.
+        get_logs_cmd = f"run --unit {app}/{unit_id} -- sudo tail -n 500 {f}"
         _, out, err = await ops_test.juju(*get_logs_cmd.split())
-        logger.debug(f"out:\n{out}\n---\nerr:\n{err}")
+        logger.info(f"out:\n{out}\n---\nerr:\n{err}")
 
-        logger.debug("\n\n------------------\n\n")
+        logger.info("\n\n------------------\n\n")
 
 
 def opensearch_client(
