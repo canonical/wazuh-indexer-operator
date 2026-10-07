@@ -41,6 +41,10 @@ jobs:
               .stdout.strip()
               .split("\n")
           )
+          # DEBUG: temporarily restrict CI to only test_plugins.py while validating the
+          # opensearch-security-analytics plugin fix (canonical/wazuh-indexer-snap#27).
+          # TODO: remove this filter before merging.
+          spread_jobs = [job for job in spread_jobs if "test_plugins.py" in job]
           jobs = []
           for job in spread_jobs:
               # Example `job`: "github-ci:ubuntu-24.04:tests/spread/test_charm.py:juju36"

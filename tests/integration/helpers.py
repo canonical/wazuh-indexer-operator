@@ -343,6 +343,7 @@ async def http_request(
     app: str = APP_NAME,
     json_resp: bool = True,
     extra_headers: Optional[Dict[str, any]] = None,
+    read_timeout: int = 17,
 ):
     """Makes an HTTP request.
 
@@ -356,6 +357,8 @@ async def http_request(
         user_password: use alternative password than the admin one in the secrets.
         app: the name of the current application.
         json_resp: return a json response or simply log
+        read_timeout: seconds to wait for the response body (some endpoints, e.g. first-time
+            plugin index bootstrap, are slower than the 17s default)
 
     Returns:
         A json object.
@@ -372,7 +375,7 @@ async def http_request(
         request_kwargs = {
             "method": method,
             "url": endpoint,
-            "timeout": (17, 17),
+            "timeout": (17, read_timeout),
         }
         headers = {}
         if json_resp:

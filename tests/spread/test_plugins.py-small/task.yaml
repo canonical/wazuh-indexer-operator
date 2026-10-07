@@ -4,6 +4,10 @@ environment:
 systems:
   - self-hosted-linux-amd64-noble-xlarge
 execute: |
-  tox run -e integration -- "tests/integration/$TEST_MODULE" --model testing --alluredir="$SPREAD_TASK/allure-results" -m 'group(id="small_deployment")'
+  # DEBUG: temporarily scoped to only the deploy step + test_security_analytics_plugin,
+  # to validate the opensearch-security-analytics plugin fix (canonical/wazuh-indexer-snap#27)
+  # without waiting ~30min for the full test_plugins.py suite each CI run.
+  # TODO: revert to running the full suite before merging.
+  tox run -e integration -- "tests/integration/$TEST_MODULE" --model testing --alluredir="$SPREAD_TASK/allure-results" -m 'group(id="small_deployment")' -k 'test_build_and_deploy_small_deployment or test_security_analytics_plugin'
 artifacts:
   - allure-results

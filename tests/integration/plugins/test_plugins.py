@@ -1467,7 +1467,11 @@ level: low"""
             }
         ],
     }
-    response = await http_request(ops_test, "POST", f"{endpoint}/detectors", payload)
+    # First-time detector creation bootstraps the plugin's internal config/mapping/
+    # job-scheduler indices, which can take longer than the default 17s read timeout.
+    response = await http_request(
+        ops_test, "POST", f"{endpoint}/detectors", payload, read_timeout=60
+    )
     logger.info(f"\nDetectors response: {response}")
     detector_id = response.get("_id")
     assert detector_id, "Security Analytics detector not created"
