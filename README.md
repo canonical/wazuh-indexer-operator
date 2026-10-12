@@ -9,6 +9,9 @@
 
 ## Description
 
+> [!IMPORTANT]
+> Wazuh 4.11 is no longer supported; Wazuh 4.14 is the supported version.
+
 The Charmed Wazuh Indexer Operator deploys and operates the [Wazuh](https://wazuh.com/) software on VMs and machine clusters.
 
 This operator provides an Wazuh Indexer cluster, with:
