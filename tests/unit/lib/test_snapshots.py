@@ -13,6 +13,11 @@ from charms.opensearch.v0.constants_charm import (
     BackupCredentialIncorrect,
     PeerClusterOrchestratorRelationName,
 )
+from charms.opensearch.v0.models import (
+    ObjectStorageConfig,
+    S3RelData,
+    S3RelDataCredentials,
+)
 from charms.opensearch.v0.opensearch_exceptions import OpenSearchHttpError
 from charms.opensearch.v0.opensearch_health import HealthColors
 from charms.opensearch.v0.opensearch_snapshots import (
@@ -860,6 +865,47 @@ class TestCreateGCSBucket(SnapshotsUnitTestFixtures):
 
         assert helper_security.verify_gcs_credentials(cfg) is False
         blob.delete.assert_not_called()
+
+
+class TestCreateRepository:
+    """Tests for OpenSearchSnapshotsManager.create_repository's S3 settings payload."""
+
+    def _build_manager(self, response: dict | None = None) -> SnapshotsManager:
+        charm = Mock()
+        opensearch = Mock()
+        opensearch.request = Mock(return_value=response or {"acknowledged": True})
+        return SnapshotsManager(charm=charm, opensearch=opensearch)
+
+    @staticmethod
+    def _s3_config(*, path_style_access: bool) -> ObjectStorageConfig:
+        return ObjectStorageConfig(
+            s3=S3RelData(
+                bucket="mybucket",
+                endpoint="https://s3.example.com",
+                region="us-east-1",
+                path="base/path",
+                credentials=S3RelDataCredentials(access_key="ACCESS", secret_key="secret"),
+                **{"s3-uri-style": "path" if path_style_access else "host"},
+            )
+        )
+
+    def test_create_repository_s3_forwards_path_style_access_true(self):
+        manager = self._build_manager()
+        cfg = self._s3_config(path_style_access=True)
+
+        manager.create_repository(ObjectStorageType.S3, cfg, name="test-repo")
+
+        _, kwargs = manager.opensearch.request.call_args
+        assert kwargs["payload"]["settings"]["path_style_access"] is True
+
+    def test_create_repository_s3_forwards_path_style_access_false(self):
+        manager = self._build_manager()
+        cfg = self._s3_config(path_style_access=False)
+
+        manager.create_repository(ObjectStorageType.S3, cfg, name="test-repo")
+
+        _, kwargs = manager.opensearch.request.call_args
+        assert kwargs["payload"]["settings"]["path_style_access"] is False
 
 
 class TestVerifyBackupCredentialsEvent:

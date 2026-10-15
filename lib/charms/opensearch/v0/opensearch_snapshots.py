@@ -1256,6 +1256,7 @@ class OpenSearchSnapshotsManager:
                 "base_path": object_storage_config.s3.base_path,
                 "region": object_storage_config.s3.region,
                 "endpoint": object_storage_config.s3.endpoint,
+                "path_style_access": object_storage_config.s3.path_style_access,
             }
 
         elif object_storage_type == ObjectStorageType.AZURE:
