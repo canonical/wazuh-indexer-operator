@@ -889,23 +889,15 @@ class TestCreateRepository:
             )
         )
 
-    def test_create_repository_s3_forwards_path_style_access_true(self):
+    @pytest.mark.parametrize("path_style_access", [True, False])
+    def test_create_repository_s3_forwards_path_style_access(self, path_style_access: bool):
         manager = self._build_manager()
-        cfg = self._s3_config(path_style_access=True)
+        cfg = self._s3_config(path_style_access=path_style_access)
 
         manager.create_repository(ObjectStorageType.S3, cfg, name="test-repo")
 
         _, kwargs = manager.opensearch.request.call_args
-        assert kwargs["payload"]["settings"]["path_style_access"] is True
-
-    def test_create_repository_s3_forwards_path_style_access_false(self):
-        manager = self._build_manager()
-        cfg = self._s3_config(path_style_access=False)
-
-        manager.create_repository(ObjectStorageType.S3, cfg, name="test-repo")
-
-        _, kwargs = manager.opensearch.request.call_args
-        assert kwargs["payload"]["settings"]["path_style_access"] is False
+        assert kwargs["payload"]["settings"]["path_style_access"] is path_style_access
 
 
 class TestVerifyBackupCredentialsEvent:
