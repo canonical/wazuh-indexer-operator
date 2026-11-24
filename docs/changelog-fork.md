@@ -11,6 +11,7 @@ Each revision is versioned by the date of the revision.
 ### Added
 
 - Renovate configuration that tracks the `wazuh-indexer` snap revision on the `4.14/edge` channel (`OPENSEARCH_SNAP_REVISION`) and the matching Wazuh version (`workload_version`) in a single PR.
+- Documented that the Wazuh indexer, dashboard and server must run the same Wazuh version and be upgraded together; removed the hardcoded patch version from `FORK.md`.
 
 ## 2026-09-30
 
