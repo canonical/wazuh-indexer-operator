@@ -1,0 +1,78 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "enabledManagers": [
+    "custom.regex"
+  ],
+  "hostRules": [
+    {
+      "matchHost": "api.snapcraft.io",
+      "headers": {
+        "X-Ubuntu-Series": "16",
+        "X-Ubuntu-Architecture": "amd64"
+      }
+    }
+  ],
+  "customDatasources": {
+    "snapstore-revision": {
+      "defaultRegistryUrlTemplate": "https://api.snapcraft.io/api/v1/snaps/details/{{packageName}}?channel=4.14/edge&fields=revision,version",
+      "format": "json",
+      "transformTemplates": [
+        "{\"releases\": [{\"version\": $string(revision)}]}"
+      ]
+    },
+    "snapstore-version": {
+      "defaultRegistryUrlTemplate": "https://api.snapcraft.io/api/v1/snaps/details/{{packageName}}?channel=4.14/edge&fields=revision,version",
+      "format": "json",
+      "transformTemplates": [
+        "{\"releases\": [{\"version\": version}]}"
+      ]
+    }
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "wazuh-indexer snap revision on the 4.14/edge channel",
+      "managerFilePatterns": [
+        "/(^|/)constants_charm\\.py$/"
+      ],
+      "matchStrings": [
+        "OPENSEARCH_SNAP_REVISION = (?<currentValue>\\d+)"
+      ],
+      "depNameTemplate": "wazuh-indexer",
+      "datasourceTemplate": "custom.snapstore-revision",
+      "versioningTemplate": "semver-coerced"
+    },
+    {
+      "customType": "regex",
+      "description": "Wazuh version matching the snap revision",
+      "managerFilePatterns": [
+        "/(^|/)workload_version$/"
+      ],
+      "matchStrings": [
+        "^(?<currentValue>\\d+\\.\\d+\\.\\d+)"
+      ],
+      "depNameTemplate": "wazuh-indexer",
+      "datasourceTemplate": "custom.snapstore-version",
+      "versioningTemplate": "semver"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Keep the wazuh-indexer snap revision and the Wazuh workload version in a single PR; an integration run must gate it, so do not automerge.",
+      "matchPackageNames": [
+        "wazuh-indexer"
+      ],
+      "groupName": "wazuh-indexer-snap",
+      "automerge": false
+    }
+  ],
+  "schedule": [
+    "* * * * 0,6"
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true
+  }
+}

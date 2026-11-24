@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Each revision is versioned by the date of the revision.
 
+## 2026-11-24
+
+### Added
+
+- Renovate configuration that tracks the `wazuh-indexer` snap revision on the `4.14/edge` channel (`OPENSEARCH_SNAP_REVISION`) and the matching Wazuh version (`workload_version`) in a single PR.
+
 ## 2026-09-30
 
 ### Changed
