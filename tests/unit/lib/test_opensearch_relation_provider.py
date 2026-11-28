@@ -269,6 +269,97 @@ class TestOpenSearchProvider(unittest.TestCase):
             is True
         )
 
+    @patch(
+        "charms.opensearch.v0.opensearch_relation_provider.OpenSearchProvider.remove_lingering_relation_users_and_roles"
+    )
+    def test_on_relation_departed_keeps_relation_user(self, _remove_users):
+        """A unit leaving the relation must not destroy the relation user."""
+        event = MagicMock()
+        event.departing_unit.name = "some other unit"
+        self.opensearch_provider._on_relation_departed(event)
+        _remove_users.assert_not_called()
+
+        event.departing_unit = self.unit
+        self.opensearch_provider._on_relation_departed(event)
+        _remove_users.assert_not_called()
+
+    @patch("charms.opensearch.v0.opensearch_users.OpenSearchUserManager.remove_role")
+    @patch("charms.opensearch.v0.opensearch_users.OpenSearchUserManager.remove_user")
+    @patch(
+        "charms.opensearch.v0.opensearch_distro.OpenSearchDistribution.is_node_up",
+        return_value=True,
+    )
+    @patch("charm.OpenSearchOperatorCharm._put_or_update_internal_user_leader")
+    @patch("charm.OpenSearchOperatorCharm._purge_users")
+    def test_remove_lingering_keeps_user_of_established_relation(
+        self, _, __, _is_node_up, _remove_user, _remove_role
+    ):
+        username = f"{ClientRelationName}_{self.client_rel_id}"
+        with self.harness.hooks_disabled():
+            self.harness.set_leader(True)
+            self.harness.update_relation_data(
+                self.peers_rel_id,
+                self.charm.app.name,
+                {ClientUsersDict: json.dumps({self.client_rel_id: username})},
+            )
+
+        self.opensearch_provider.remove_lingering_relation_users_and_roles(self.client_rel_id)
+
+        _remove_user.assert_not_called()
+        _remove_role.assert_not_called()
+        assert json.loads(
+            self.harness.get_relation_data(self.peers_rel_id, self.charm.app.name)[ClientUsersDict]
+        ) == {str(self.client_rel_id): username}
+
+    @patch("charms.data_platform_libs.v0.data_interfaces.OpenSearchProvides.set_credentials")
+    @patch(
+        "charms.opensearch.v0.opensearch_relation_provider.generate_hashed_password",
+        return_value=("hashed_pw", "password"),
+    )
+    @patch(
+        "charms.opensearch.v0.opensearch_relation_provider.OpenSearchProvider.create_opensearch_users"
+    )
+    @patch(
+        "charms.opensearch.v0.opensearch_distro.OpenSearchDistribution.is_node_up",
+        return_value=True,
+    )
+    @patch("charm.OpenSearchOperatorCharm._put_or_update_internal_user_leader")
+    @patch("charm.OpenSearchOperatorCharm._purge_users")
+    def test_reconcile_relation_users(
+        self, _, __, _is_node_up, _create_users, _gen_pw, _set_credentials
+    ):
+        username = f"{ClientRelationName}_{self.client_rel_id}"
+        with self.harness.hooks_disabled():
+            self.harness.set_leader(True)
+            self.harness.update_relation_data(
+                self.client_rel_id,
+                "application",
+                {"index": "test_index", "extra-user-roles": "admin"},
+            )
+
+        # The user is missing from the tracked users, so it gets recreated.
+        self.opensearch_provider.reconcile_relation_users()
+
+        _create_users.assert_called_once_with(
+            username, "hashed_pw", "test_index", "admin", relation_id=self.client_rel_id
+        )
+        _set_credentials.assert_called_once_with(self.client_rel_id, username, "password")
+
+        # Once the user is registered, reconciliation is a no-op.
+        _create_users.reset_mock()
+        _set_credentials.reset_mock()
+        with self.harness.hooks_disabled():
+            self.harness.update_relation_data(
+                self.peers_rel_id,
+                self.charm.app.name,
+                {ClientUsersDict: json.dumps({self.client_rel_id: username})},
+            )
+
+        self.opensearch_provider.reconcile_relation_users()
+
+        _create_users.assert_not_called()
+        _set_credentials.assert_not_called()
+
     @patch("charms.opensearch.v0.opensearch_relation_provider.OpenSearchProvider._unit_departing")
     @patch(
         "charms.opensearch.v0.opensearch_relation_provider.OpenSearchProvider.remove_lingering_relation_users_and_roles"
